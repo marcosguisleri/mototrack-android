@@ -18,6 +18,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import br.dev.guisleri.mototrack.ui.navigation.MainDestination
+import br.dev.guisleri.mototrack.ui.screen.home.HomeScreen
+import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesScreen
+import br.dev.guisleri.mototrack.ui.screen.profile.ProfileScreen
+import br.dev.guisleri.mototrack.ui.screen.trips.TripsScreen
 import br.dev.guisleri.mototrack.ui.theme.MotoTrackTheme
 
 class MainActivity : ComponentActivity() {
@@ -75,46 +80,4 @@ fun MotoTrackApp() {
         }
 
     }
-}
-
-@Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
-    Text(
-        text = "Home",
-        modifier = modifier
-    )
-}
-
-@Composable
-fun TripsScreen(modifier: Modifier = Modifier) {
-    Text(
-        text = "Trips",
-        modifier = modifier
-    )
-}
-
-@Composable
-fun MotorcyclesScreen(modifier: Modifier = Modifier) {
-    Text(
-        text = "Motorcycles",
-        modifier = modifier
-    )
-}
-
-@Composable
-fun ProfileScreen(modifier: Modifier = Modifier) {
-    Text(
-        text = "Profile",
-        modifier = modifier
-    )
-}
-
-enum class MainDestination(
-    val label: String,
-    val iconResId: Int
-) {
-    HOME("Home", R.drawable.ic_home),
-    TRIPS("Viagens", R.drawable.ic_trips),
-    MOTORCYCLES("Motos", R.drawable.ic_motorcycle),
-    PROFILE("Perfil", R.drawable.ic_profile)
 }
