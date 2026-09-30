@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MotoTrackApp() {
 
-    var selectedItem by remember {
+    var selectedDestination by remember {
         mutableStateOf(MainDestination.HOME)
     }
 
@@ -43,82 +43,31 @@ fun MotoTrackApp() {
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
             NavigationBar {
-                NavigationBarItem(
-                    selected = selectedItem == MainDestination.HOME,
-                    onClick = {
-                        selectedItem = MainDestination.HOME
-                    },
-                    icon = {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_home),
-                            contentDescription = null
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = "Home"
-                        )
-                    }
-                )
+                MainDestination.entries.forEach { destination ->
+                    NavigationBarItem(
+                        selected = selectedDestination == destination,
+                        onClick = {
+                            selectedDestination = destination
+                        },
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = destination.iconResId),
+                                contentDescription = null
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = destination.label
+                            )
+                        }
+                    )
 
-                NavigationBarItem(
-                    selected = selectedItem == MainDestination.TRIPS,
-                    onClick = {
-                        selectedItem = MainDestination.TRIPS
-                    },
-                    icon = {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_trips),
-                            contentDescription = null
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = "Viagens"
-                        )
-                    }
-                )
-
-                NavigationBarItem(
-                    selected = selectedItem == MainDestination.MOTORCYCLES,
-                    onClick = {
-                        selectedItem = MainDestination.MOTORCYCLES
-                    },
-                    icon = {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_motorcycle),
-                            contentDescription = null
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = "Motos"
-                        )
-                    }
-                )
-
-                NavigationBarItem(
-                    selected = selectedItem == MainDestination.PROFILE,
-                    onClick = {
-                        selectedItem = MainDestination.PROFILE
-                    },
-                    icon = {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_profile),
-                            contentDescription = null
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = "Perfil"
-                        )
-                    }
-                )
+                }
             }
         }
     ) { innerPadding ->
 
-        when (selectedItem) {
+        when (selectedDestination) {
             MainDestination.HOME -> HomeScreen(modifier = Modifier.padding(innerPadding))
             MainDestination.TRIPS -> TripsScreen(modifier = Modifier.padding(innerPadding))
             MainDestination.MOTORCYCLES -> MotorcyclesScreen(modifier = Modifier.padding(innerPadding))
@@ -160,9 +109,12 @@ fun ProfileScreen(modifier: Modifier = Modifier) {
     )
 }
 
-enum class MainDestination {
-    HOME,
-    TRIPS,
-    MOTORCYCLES,
-    PROFILE
+enum class MainDestination(
+    val label: String,
+    val iconResId: Int
+) {
+    HOME("Home", R.drawable.ic_home),
+    TRIPS("Viagens", R.drawable.ic_trips),
+    MOTORCYCLES("Motos", R.drawable.ic_motorcycle),
+    PROFILE("Perfil", R.drawable.ic_profile)
 }
