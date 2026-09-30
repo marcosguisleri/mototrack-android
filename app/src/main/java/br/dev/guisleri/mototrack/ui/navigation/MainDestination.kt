@@ -6,8 +6,23 @@ enum class MainDestination(
     val label: String,
     val iconResId: Int
 ) {
-    HOME("Home", R.drawable.ic_home),
-    TRIPS("Viagens", R.drawable.ic_trips),
-    MOTORCYCLES("Motos", R.drawable.ic_motorcycle),
-    PROFILE("Perfil", R.drawable.ic_profile)
+    HOME(
+        label = "Home",
+        iconResId = R.drawable.ic_home
+    ),
+
+    TRIPS(
+        label = "Viagens",
+        iconResId = R.drawable.ic_trips
+    ),
+
+    MOTORCYCLES(
+        label = "Motos",
+        iconResId = R.drawable.ic_motorcycle
+    ),
+
+    PROFILE(
+        label = "Perfil",
+        iconResId = R.drawable.ic_profile
+    )
 }
