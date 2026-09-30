@@ -12,12 +12,13 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.ui.NavDisplay
+
 import br.dev.guisleri.mototrack.ui.navigation.MainDestination
 import br.dev.guisleri.mototrack.ui.screen.home.HomeScreen
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesScreen
@@ -40,9 +41,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MotoTrackApp() {
 
-    var selectedDestination by remember {
-        mutableStateOf(MainDestination.HOME)
+    val backStack = remember {
+        mutableStateListOf(MainDestination.HOME)
     }
+
+    val currentDestination = backStack.last()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -50,9 +53,16 @@ fun MotoTrackApp() {
             NavigationBar {
                 MainDestination.entries.forEach { destination ->
                     NavigationBarItem(
-                        selected = selectedDestination == destination,
+                        selected = currentDestination == destination,
                         onClick = {
-                            selectedDestination = destination
+                            if (currentDestination != destination) {
+                                backStack.clear()
+                                backStack.add(MainDestination.HOME)
+
+                                if (destination != MainDestination.HOME) {
+                                    backStack.add(destination)
+                                }
+                            }
                         },
                         icon = {
                             Icon(
@@ -72,12 +82,38 @@ fun MotoTrackApp() {
         }
     ) { innerPadding ->
 
-        when (selectedDestination) {
-            MainDestination.HOME -> HomeScreen(modifier = Modifier.padding(innerPadding))
-            MainDestination.TRIPS -> TripsScreen(modifier = Modifier.padding(innerPadding))
-            MainDestination.MOTORCYCLES -> MotorcyclesScreen(modifier = Modifier.padding(innerPadding))
-            MainDestination.PROFILE -> ProfileScreen(modifier = Modifier.padding(innerPadding))
-        }
+        NavDisplay(
+            backStack = backStack,
+            onBack = {
+                if (backStack.size > 1) {
+                    backStack.removeLastOrNull()
+                }
+            },
+            entryProvider = { destination ->
+                when (destination) {
+                    MainDestination.HOME -> NavEntry(destination) {
+                        HomeScreen(
+                            Modifier.padding(innerPadding)
+                        )
+                    }
+                    MainDestination.TRIPS -> NavEntry(destination) {
+                        TripsScreen(
+                            Modifier.padding(innerPadding)
+                        )
+                    }
+                    MainDestination.MOTORCYCLES -> NavEntry(destination) {
+                        MotorcyclesScreen(
+                            Modifier.padding(innerPadding)
+                        )
+                    }
+                    MainDestination.PROFILE -> NavEntry(destination) {
+                        ProfileScreen(
+                            Modifier.padding(innerPadding)
+                        )
+                    }
+                }
+            }
+        )
 
     }
 }
