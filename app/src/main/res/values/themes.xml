@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.MotoTrack" parent="android:Theme.Material.Light.NoActionBar" />
+    <style
+        name="Theme.MotoTrack"
+        parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style
+        name="Theme.MotoTrack.Starting"
+        parent="Theme.SplashScreen">
+
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_mototrack_splash</item>
+
+        <item name="postSplashScreenTheme">@style/Theme.MotoTrack</item>
+
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+
+    </style>
+
 </resources>
