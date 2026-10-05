@@ -5,11 +5,11 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 private val LightColorScheme = lightColorScheme(
-    primary = MotoTrackTeal,
-    onPrimary = MotoTrackSurface,
+    primary = MotoTrackAccent,
+    onPrimary = MotoTrackDark,
 
-    secondary = MotoTrackAccent,
-    onSecondary = MotoTrackDark,
+    secondary = MotoTrackTeal,
+    onSecondary = MotoTrackSurface,
 
     background = MotoTrackBackground,
     onBackground = MotoTrackTextPrimary,

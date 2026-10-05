@@ -9,11 +9,17 @@
         name="Theme.MotoTrack.Starting"
         parent="Theme.SplashScreen">
 
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_mototrack_splash</item>
+        <item name="windowSplashScreenAnimatedIcon">
+            @drawable/ic_mototrack_splash
+        </item>
 
-        <item name="postSplashScreenTheme">@style/Theme.MotoTrack</item>
+        <item name="postSplashScreenTheme">
+            @style/Theme.MotoTrack
+        </item>
 
-        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenBackground">
+            @color/splash_background
+        </item>
 
     </style>
 
