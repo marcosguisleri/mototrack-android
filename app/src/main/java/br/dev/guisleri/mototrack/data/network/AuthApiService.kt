@@ -1,0 +1,15 @@
+package br.dev.guisleri.mototrack.data.network
+
+import br.dev.guisleri.mototrack.data.model.auth.AuthTokenResponseDTO
+import br.dev.guisleri.mototrack.data.model.auth.LoginRequestDTO
+import retrofit2.http.Body
+import retrofit2.http.POST
+
+interface AuthApiService {
+
+    @POST("auth/login")
+    suspend fun login(
+        @Body request: LoginRequestDTO
+    ): AuthTokenResponseDTO
+
+}
