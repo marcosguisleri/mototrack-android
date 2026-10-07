@@ -4,19 +4,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import br.dev.guisleri.mototrack.ui.navigation.MainDestination
 import br.dev.guisleri.mototrack.ui.navigation.MotoTrackBottomBar
 import br.dev.guisleri.mototrack.ui.screen.home.HomeScreen
+import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModel
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesScreen
 import br.dev.guisleri.mototrack.ui.screen.profile.ProfileScreen
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsScreen
 
 @Composable
 fun MainScreen(
+    homeViewModel: HomeViewModel,
     onLogoutClick: () -> Unit
 ) {
 
@@ -55,11 +59,22 @@ fun MainScreen(
             entryProvider = { destination ->
                 when (destination) {
 
-                    MainDestination.HOME -> NavEntry(destination) {
-                        HomeScreen(
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                    }
+                    MainDestination.HOME ->
+                        NavEntry(destination) {
+
+                            val homeUiState by
+                            homeViewModel
+                                .uiState
+                                .collectAsStateWithLifecycle()
+
+                            HomeScreen(
+                                uiState = homeUiState,
+                                onRetryClick = {
+                                    homeViewModel.loadHome()
+                                },
+                                modifier = Modifier.padding(innerPadding)
+                            )
+                        }
 
                     MainDestination.TRIPS -> NavEntry(destination) {
                         TripsScreen(
