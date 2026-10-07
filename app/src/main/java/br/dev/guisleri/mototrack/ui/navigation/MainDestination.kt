@@ -11,21 +11,21 @@ enum class MainDestination(
 ) : NavKey {
     HOME(
         label = "Home",
-        iconResId = R.drawable.ic_home
+        iconResId = R.drawable.ic_mototrack_home
     ),
 
     TRIPS(
         label = "Viagens",
-        iconResId = R.drawable.ic_trips
+        iconResId = R.drawable.ic_mototrack_trips
     ),
 
     MOTORCYCLES(
         label = "Motos",
-        iconResId = R.drawable.ic_motorcycle
+        iconResId = R.drawable.ic_mototrack_motorcycles
     ),
 
     PROFILE(
         label = "Perfil",
-        iconResId = R.drawable.ic_profile
+        iconResId = R.drawable.ic_mototrack_profile
     )
 }
