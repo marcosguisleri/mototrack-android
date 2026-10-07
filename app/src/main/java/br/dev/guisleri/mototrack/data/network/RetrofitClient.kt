@@ -1,7 +1,9 @@
 package br.dev.guisleri.mototrack.data.network
 
+import br.dev.guisleri.mototrack.data.local.TokenStorage
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
@@ -13,18 +15,51 @@ object RetrofitClient {
         ignoreUnknownKeys = true
     }
 
-    private val retrofit: Retrofit by lazy {
-        Retrofit.Builder()
+    private val publicRetrofit: Retrofit by lazy {
+        createRetrofit()
+    }
+
+    val authApiService: AuthApiService by lazy {
+        publicRetrofit.create(AuthApiService::class.java)
+    }
+
+    fun createAuthenticatedRetrofit(
+        tokenStorage: TokenStorage
+    ): Retrofit {
+
+        val okHttpClient = OkHttpClient.Builder()
+            .addInterceptor(
+                AuthInterceptor(tokenStorage)
+            )
+            .authenticator(
+                TokenAuthenticator(
+                    authApiService = authApiService,
+                    tokenStorage = tokenStorage
+                )
+            )
+            .build()
+
+        return createRetrofit(
+            okHttpClient = okHttpClient
+        )
+    }
+
+    private fun createRetrofit(
+        okHttpClient: OkHttpClient? = null
+    ): Retrofit {
+
+        val builder = Retrofit.Builder()
             .baseUrl(BASE_URL)
             .addConverterFactory(
                 json.asConverterFactory(
                     "application/json".toMediaType()
                 )
             )
-            .build()
-    }
 
-    val authApiService: AuthApiService by lazy {
-        retrofit.create(AuthApiService::class.java)
+        if (okHttpClient != null) {
+            builder.client(okHttpClient)
+        }
+
+        return builder.build()
     }
 }

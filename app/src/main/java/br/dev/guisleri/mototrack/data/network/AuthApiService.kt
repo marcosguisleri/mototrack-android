@@ -18,4 +18,9 @@ interface AuthApiService {
         @Body request: RefreshTokenRequestDTO
     )
 
+    @POST("auth/refresh")
+    suspend fun refresh(
+        @Body request: RefreshTokenRequestDTO
+    ): AuthTokenResponseDTO
+
 }

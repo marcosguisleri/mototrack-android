@@ -4,6 +4,10 @@ import br.dev.guisleri.mototrack.data.local.TokenStorage
 import br.dev.guisleri.mototrack.data.model.auth.LoginRequestDTO
 import br.dev.guisleri.mototrack.data.model.auth.RefreshTokenRequestDTO
 import br.dev.guisleri.mototrack.data.network.AuthApiService
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 
 class AuthRepository(
     private val authApiService: AuthApiService,
@@ -28,18 +32,17 @@ class AuthRepository(
     }
 
     suspend fun logout() {
-        val refreshToken = tokenStorage.getRefreshToken()
+        val refreshToken = withContext(NonCancellable) {
+            tokenStorage.clearTokensAndGetRefreshToken()
+        }
+        currentCoroutineContext().ensureActive()
 
-        try {
-            if (!refreshToken.isNullOrBlank()) {
-                authApiService.logout(
-                    RefreshTokenRequestDTO(
-                        refreshToken = refreshToken
-                    )
+        if (!refreshToken.isNullOrBlank()) {
+            authApiService.logout(
+                RefreshTokenRequestDTO(
+                    refreshToken = refreshToken
                 )
-            }
-        } finally {
-            tokenStorage.clearTokens()
+            )
         }
     }
 }

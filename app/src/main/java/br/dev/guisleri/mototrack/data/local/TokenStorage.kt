@@ -14,9 +14,11 @@ private val Context.authDataStore: DataStore<Preferences> by preferencesDataStor
     name = "auth"
 )
 
-class TokenStorage(
-    private val context: Context
+class TokenStorage internal constructor(
+    private val dataStore: DataStore<Preferences>
 ) {
+
+    constructor(context: Context) : this(context.applicationContext.authDataStore)
 
     private companion object {
         val ACCESS_TOKEN = stringPreferencesKey("access_token")
@@ -24,43 +26,92 @@ class TokenStorage(
     }
 
     val accessToken: Flow<String?> =
-        context.authDataStore.data.map { preferences ->
+        dataStore.data.map { preferences ->
             preferences[ACCESS_TOKEN]
         }
 
     val refreshToken: Flow<String?> =
-        context.authDataStore.data.map { preferences ->
+        dataStore.data.map { preferences ->
             preferences[REFRESH_TOKEN]
+        }
+
+    val hasSession: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            val accessToken = preferences[ACCESS_TOKEN]
+            val refreshToken = preferences[REFRESH_TOKEN]
+
+            !accessToken.isNullOrBlank() &&
+                    !refreshToken.isNullOrBlank()
         }
 
     suspend fun saveTokens(
         accessToken: String,
         refreshToken: String
     ) {
-        context.authDataStore.edit { preferences ->
+        dataStore.edit { preferences ->
             preferences[ACCESS_TOKEN] = accessToken
             preferences[REFRESH_TOKEN] = refreshToken
         }
     }
 
     suspend fun clearTokens() {
-        context.authDataStore.edit { preferences ->
+        clearTokensAndGetRefreshToken()
+    }
+
+    suspend fun getTokens(): Pair<String?, String?> {
+        val preferences = dataStore.data.first()
+        return preferences[ACCESS_TOKEN] to preferences[REFRESH_TOKEN]
+    }
+
+    suspend fun saveTokensIfRefreshTokenMatches(
+        expectedRefreshToken: String,
+        accessToken: String,
+        refreshToken: String
+    ): Boolean {
+        var saved = false
+        dataStore.edit { preferences ->
+            if (preferences[REFRESH_TOKEN] == expectedRefreshToken) {
+                preferences[ACCESS_TOKEN] = accessToken
+                preferences[REFRESH_TOKEN] = refreshToken
+                saved = true
+            }
+        }
+        return saved
+    }
+
+    suspend fun clearTokensIfRefreshTokenMatches(
+        expectedRefreshToken: String
+    ): Boolean {
+        var cleared = false
+        dataStore.edit { preferences ->
+            if (preferences[REFRESH_TOKEN] == expectedRefreshToken) {
+                preferences.remove(ACCESS_TOKEN)
+                preferences.remove(REFRESH_TOKEN)
+                cleared = true
+            }
+        }
+        return cleared
+    }
+
+    suspend fun clearTokensAndGetRefreshToken(): String? {
+        var refreshToken: String? = null
+        dataStore.edit { preferences ->
+            refreshToken = preferences[REFRESH_TOKEN]
             preferences.remove(ACCESS_TOKEN)
             preferences.remove(REFRESH_TOKEN)
         }
+        return refreshToken
     }
 
     suspend fun hasStoredSession(): Boolean {
-        val preferences = context.authDataStore.data.first()
-
-        val accessToken = preferences[ACCESS_TOKEN]
-        val refreshToken = preferences[REFRESH_TOKEN]
-
-        return !accessToken.isNullOrBlank() &&
-                !refreshToken.isNullOrBlank()
+        return hasSession.first()
     }
 
     suspend fun getRefreshToken(): String? {
         return refreshToken.first()
+    }
+
+    suspend fun getAccessToken(): String? {
+        return accessToken.first()
     }
 }

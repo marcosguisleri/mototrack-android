@@ -3,6 +3,7 @@ package br.dev.guisleri.mototrack.ui.screen.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.dev.guisleri.mototrack.data.repository.AuthRepository
+import kotlinx.coroutines.CancellationException
 import java.io.IOException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,6 +51,9 @@ class LoginViewModel(
                 )
 
                 _uiState.value = LoginUiState.Success
+
+            } catch (exception: CancellationException) {
+                throw exception
 
             } catch (exception: HttpException) {
 
