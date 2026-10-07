@@ -44,16 +44,12 @@ class LoginViewModel(
                 LoginUiState.Loading
 
             try {
-                val tokens =
-                    authRepository.login(
-                        email = email.trim(),
-                        password = password
-                    )
+                authRepository.login(
+                    email = email.trim(),
+                    password = password
+                )
 
-                _uiState.value =
-                    LoginUiState.Success(
-                        tokens
-                    )
+                _uiState.value = LoginUiState.Success
 
             } catch (exception: HttpException) {
 
@@ -73,18 +69,18 @@ class LoginViewModel(
                     )
 
             } catch (exception: IOException) {
-                exception.printStackTrace()
-
                 _uiState.value = LoginUiState.Error(
-                    "${exception::class.simpleName}: ${exception.message}"
+                    "Não foi possível conectar ao servidor."
                 )
             } catch (exception: Exception) {
-
-                _uiState.value =
-                    LoginUiState.Error(
-                        "Ocorreu um erro inesperado."
-                    )
+                _uiState.value = LoginUiState.Error(
+                    "Ocorreu um erro inesperado."
+                )
             }
         }
+    }
+
+    fun resetState() {
+        _uiState.value = LoginUiState.Idle
     }
 }

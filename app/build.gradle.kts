@@ -79,6 +79,9 @@ dependencies {
         libs.retrofit.converter.kotlinx.serialization
     )
 
+    // Data Store
+    implementation(libs.androidx.datastore.preferences)
+
     // Unit tests
     testImplementation(libs.junit)
 

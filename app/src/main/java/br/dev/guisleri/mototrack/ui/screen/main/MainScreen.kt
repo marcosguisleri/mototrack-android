@@ -16,7 +16,9 @@ import br.dev.guisleri.mototrack.ui.screen.profile.ProfileScreen
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsScreen
 
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    onLogoutClick: () -> Unit
+) {
 
     val backStack = rememberNavBackStack(MainDestination.HOME)
 
@@ -73,6 +75,7 @@ fun MainScreen() {
 
                     MainDestination.PROFILE -> NavEntry(destination) {
                         ProfileScreen(
+                            onLogoutClick = onLogoutClick,
                             modifier = Modifier.padding(innerPadding)
                         )
                     }

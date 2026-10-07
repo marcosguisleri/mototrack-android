@@ -8,9 +8,7 @@ sealed interface LoginUiState {
 
     data object Loading : LoginUiState
 
-    data class Success(
-        val tokens: AuthTokenResponseDTO
-    ) : LoginUiState
+    data object Success : LoginUiState
 
     data class Error(
         val message: String

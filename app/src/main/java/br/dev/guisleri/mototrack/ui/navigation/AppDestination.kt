@@ -6,5 +6,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class AppDestination : NavKey {
     LOGIN,
-    REGISTER
+    REGISTER,
+    MAIN
 }
