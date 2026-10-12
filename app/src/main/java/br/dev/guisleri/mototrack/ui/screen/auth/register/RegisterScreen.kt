@@ -1,14 +1,7 @@
-package br.dev.guisleri.mototrack.ui.screen.auth
+package br.dev.guisleri.mototrack.ui.screen.auth.register
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,18 +9,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,13 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -57,12 +47,21 @@ import androidx.compose.ui.unit.sp
 import br.dev.guisleri.mototrack.R
 
 @Composable
-fun LoginScreen(
-    uiState: LoginUiState = LoginUiState.Idle,
-    onLoginClick: (String, String) -> Unit = { _, _ -> },
-    onCreateAccountClick: () -> Unit = {},
+fun RegisterScreen(
+    uiState: RegisterUiState,
+    onRegisterClick: (
+        name: String,
+        email: String,
+        password: String,
+        confirmPassword: String
+    ) -> Unit,
+    onLoginClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var name by rememberSaveable {
+        mutableStateOf("")
+    }
+
     var email by rememberSaveable {
         mutableStateOf("")
     }
@@ -71,56 +70,57 @@ fun LoginScreen(
         mutableStateOf("")
     }
 
+    var confirmPassword by rememberSaveable {
+        mutableStateOf("")
+    }
+
     var passwordVisible by rememberSaveable {
         mutableStateOf(false)
     }
 
-    val context = LocalContext.current
-    val currentOnLoginClick by rememberUpdatedState(onLoginClick)
-    var permissionError by remember { mutableStateOf<String?>(null) }
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            permissionError = null
-            currentOnLoginClick(email, password)
-        } else {
-            permissionError = "Permita o acesso à rede local para conectar à API. " +
-                "Você pode habilitar em Configurações > Apps > MotoTrack > Permissões."
-        }
+    var confirmPasswordVisible by rememberSaveable {
+        mutableStateOf(false)
     }
+
+    val isLoading = uiState is RegisterUiState.Loading
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .padding(horizontal = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(
+                horizontal = 28.dp,
+                vertical = 32.dp
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
 
         Image(
             painter = painterResource(
                 R.drawable.ic_mototrack_symbol
             ),
             contentDescription = null,
-            modifier = Modifier.fillMaxWidth(0.28f)
+            modifier = Modifier.fillMaxWidth(0.22f)
         )
 
         Text(
             text = "MotoTrack",
-            fontSize = 30.sp,
+            fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(
-            modifier = Modifier.height(44.dp)
+            modifier = Modifier.height(32.dp)
         )
 
         Text(
-            text = "Bem-vindo de volta",
+            text = "Crie sua conta",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
@@ -131,17 +131,50 @@ fun LoginScreen(
         )
 
         Text(
-            text = "Entre para continuar sua jornada\ncom o MotoTrack.",
+            text = "Comece a registrar suas jornadas\ncom o MotoTrack.",
             fontSize = 16.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
 
         Spacer(
-            modifier = Modifier.height(36.dp)
+            modifier = Modifier.height(32.dp)
         )
 
-        LoginFieldLabel(
+        RegisterFieldLabel(
+            text = "Nome"
+        )
+
+        OutlinedTextField(
+            value = name,
+            onValueChange = {
+                name = it
+            },
+            placeholder = {
+                Text("Seu nome")
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.Person,
+                    contentDescription = null
+                )
+            },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Text,
+                imeAction = ImeAction.Next
+            ),
+            singleLine = true,
+            enabled = !isLoading,
+            shape = RoundedCornerShape(16.dp),
+            colors = registerTextFieldColors(),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(
+            modifier = Modifier.height(18.dp)
+        )
+
+        RegisterFieldLabel(
             text = "E-mail"
         )
 
@@ -164,16 +197,17 @@ fun LoginScreen(
                 imeAction = ImeAction.Next
             ),
             singleLine = true,
+            enabled = !isLoading,
             shape = RoundedCornerShape(16.dp),
-            colors = loginTextFieldColors(),
+            colors = registerTextFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(
-            modifier = Modifier.height(20.dp)
+            modifier = Modifier.height(18.dp)
         )
 
-        LoginFieldLabel(
+        RegisterFieldLabel(
             text = "Senha"
         )
 
@@ -183,7 +217,7 @@ fun LoginScreen(
                 password = it
             },
             placeholder = {
-                Text("Sua senha")
+                Text("Crie uma senha")
             },
             leadingIcon = {
                 Icon(
@@ -195,7 +229,8 @@ fun LoginScreen(
                 IconButton(
                     onClick = {
                         passwordVisible = !passwordVisible
-                    }
+                    },
+                    enabled = !isLoading
                 ) {
                     Icon(
                         imageVector = if (passwordVisible) {
@@ -218,13 +253,90 @@ fun LoginScreen(
             },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Next
+            ),
+            singleLine = true,
+            enabled = !isLoading,
+            shape = RoundedCornerShape(16.dp),
+            colors = registerTextFieldColors(),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(
+            modifier = Modifier.height(18.dp)
+        )
+
+        RegisterFieldLabel(
+            text = "Confirmar senha"
+        )
+
+        OutlinedTextField(
+            value = confirmPassword,
+            onValueChange = {
+                confirmPassword = it
+            },
+            placeholder = {
+                Text("Repita sua senha")
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.Lock,
+                    contentDescription = null
+                )
+            },
+            trailingIcon = {
+                IconButton(
+                    onClick = {
+                        confirmPasswordVisible =
+                            !confirmPasswordVisible
+                    },
+                    enabled = !isLoading
+                ) {
+                    Icon(
+                        imageVector = if (confirmPasswordVisible) {
+                            Icons.Outlined.VisibilityOff
+                        } else {
+                            Icons.Outlined.Visibility
+                        },
+                        contentDescription =
+                            if (confirmPasswordVisible) {
+                                "Ocultar senha"
+                            } else {
+                                "Mostrar senha"
+                            }
+                    )
+                }
+            },
+            visualTransformation =
+                if (confirmPasswordVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
                 imeAction = ImeAction.Done
             ),
             singleLine = true,
+            enabled = !isLoading,
             shape = RoundedCornerShape(16.dp),
-            colors = loginTextFieldColors(),
+            colors = registerTextFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
+
+        if (uiState is RegisterUiState.Error) {
+
+            Spacer(
+                modifier = Modifier.height(16.dp)
+            )
+
+            Text(
+                text = uiState.message,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         Spacer(
             modifier = Modifier.height(28.dp)
@@ -232,78 +344,37 @@ fun LoginScreen(
 
         Button(
             onClick = {
-                permissionError = null
-                if (email.isBlank() || password.isBlank()) {
-                    onLoginClick(email, password)
-                } else if (
-                    Build.VERSION.SDK_INT >= 37 &&
-                    ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.ACCESS_LOCAL_NETWORK
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    permissionLauncher.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
-                } else {
-                    onLoginClick(email, password)
-                }
+                onRegisterClick(
+                    name,
+                    email,
+                    password,
+                    confirmPassword
+                )
             },
-            enabled = uiState !is LoginUiState.Loading,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            )
+            enabled = !isLoading,
+            modifier = Modifier.fillMaxWidth()
         ) {
 
-            if (uiState is LoginUiState.Loading) {
+            if (isLoading) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
                 )
             } else {
                 Text(
-                    text = "Entrar",
+                    text = "Criar conta",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
         }
 
-        if (permissionError != null || uiState is LoginUiState.Error) {
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-
-            Text(
-                text = permissionError ?: (uiState as LoginUiState.Error).message,
-                color = MaterialTheme.colorScheme.error,
-                fontSize = 14.sp,
-                textAlign = TextAlign.Center
-            )
-        }
-
-        if (uiState is LoginUiState.Success) {
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-
-            Text(
-                text = "Login realizado com sucesso.",
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-
         Spacer(
-            modifier = Modifier.height(32.dp)
+            modifier = Modifier.height(28.dp)
         )
 
         Text(
-            text = "Ainda não tem uma conta?",
+            text = "Já tem uma conta?",
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
@@ -312,18 +383,24 @@ fun LoginScreen(
         )
 
         Text(
-            text = "Criar conta",
+            text = "Entrar",
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clickable {
-                onCreateAccountClick()
+            modifier = Modifier.clickable(
+                enabled = !isLoading
+            ) {
+                onLoginClick()
             }
+        )
+
+        Spacer(
+            modifier = Modifier.height(24.dp)
         )
     }
 }
 
 @Composable
-private fun LoginFieldLabel(
+private fun RegisterFieldLabel(
     text: String
 ) {
     Text(
@@ -337,17 +414,14 @@ private fun LoginFieldLabel(
 }
 
 @Composable
-private fun loginTextFieldColors() =
+private fun registerTextFieldColors() =
     OutlinedTextFieldDefaults.colors(
         focusedContainerColor =
             MaterialTheme.colorScheme.surface,
-
         unfocusedContainerColor =
             MaterialTheme.colorScheme.surface,
-
         focusedBorderColor =
             MaterialTheme.colorScheme.primary,
-
         unfocusedBorderColor =
             MaterialTheme.colorScheme.outlineVariant
     )

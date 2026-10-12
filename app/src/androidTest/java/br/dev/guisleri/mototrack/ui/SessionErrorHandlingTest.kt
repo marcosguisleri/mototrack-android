@@ -15,14 +15,16 @@ import br.dev.guisleri.mototrack.data.local.TokenStorage
 import br.dev.guisleri.mototrack.data.model.auth.AuthTokenResponseDTO
 import br.dev.guisleri.mototrack.data.model.auth.LoginRequestDTO
 import br.dev.guisleri.mototrack.data.model.auth.RefreshTokenRequestDTO
+import br.dev.guisleri.mototrack.data.model.auth.RegisterRequestDTO
+import br.dev.guisleri.mototrack.data.model.auth.UserResponseDTO
 import br.dev.guisleri.mototrack.data.model.home.HomeResponseDTO
 import br.dev.guisleri.mototrack.data.network.AuthApiService
 import br.dev.guisleri.mototrack.data.network.HomeApiService
 import br.dev.guisleri.mototrack.data.repository.AuthRepository
 import br.dev.guisleri.mototrack.data.repository.HomeRepository
-import br.dev.guisleri.mototrack.ui.screen.auth.LoginUiState
-import br.dev.guisleri.mototrack.ui.screen.auth.LoginViewModel
-import br.dev.guisleri.mototrack.ui.screen.auth.LoginViewModelFactory
+import br.dev.guisleri.mototrack.ui.screen.auth.login.LoginUiState
+import br.dev.guisleri.mototrack.ui.screen.auth.login.LoginViewModel
+import br.dev.guisleri.mototrack.ui.screen.auth.login.LoginViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.home.HomeUiState
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModel
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModelFactory
@@ -103,6 +105,8 @@ class SessionErrorHandlingTest {
         val api = object : AuthApiService {
             override suspend fun login(request: LoginRequestDTO): AuthTokenResponseDTO =
                 throw CancellationException("Cancelled")
+            override suspend fun register(request: RegisterRequestDTO): UserResponseDTO =
+                throw AssertionError("Unexpected register")
             override suspend fun refresh(request: RefreshTokenRequestDTO): AuthTokenResponseDTO =
                 throw AssertionError("Unexpected refresh")
             override suspend fun logout(request: RefreshTokenRequestDTO) =

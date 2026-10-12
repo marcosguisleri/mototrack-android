@@ -1,4 +1,4 @@
-package br.dev.guisleri.mototrack.ui.screen.auth
+package br.dev.guisleri.mototrack.ui.screen.auth.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider

@@ -30,11 +30,14 @@ import br.dev.guisleri.mototrack.data.network.RetrofitClient
 import br.dev.guisleri.mototrack.data.repository.AuthRepository
 import br.dev.guisleri.mototrack.data.repository.HomeRepository
 import br.dev.guisleri.mototrack.ui.navigation.AppDestination
-import br.dev.guisleri.mototrack.ui.screen.auth.LoginScreen
-import br.dev.guisleri.mototrack.ui.screen.auth.LoginUiState
-import br.dev.guisleri.mototrack.ui.screen.auth.LoginViewModel
-import br.dev.guisleri.mototrack.ui.screen.auth.LoginViewModelFactory
-import br.dev.guisleri.mototrack.ui.screen.auth.RegisterScreen
+import br.dev.guisleri.mototrack.ui.screen.auth.login.LoginScreen
+import br.dev.guisleri.mototrack.ui.screen.auth.login.LoginUiState
+import br.dev.guisleri.mototrack.ui.screen.auth.login.LoginViewModel
+import br.dev.guisleri.mototrack.ui.screen.auth.login.LoginViewModelFactory
+import br.dev.guisleri.mototrack.ui.screen.auth.register.RegisterScreen
+import br.dev.guisleri.mototrack.ui.screen.auth.register.RegisterUiState
+import br.dev.guisleri.mototrack.ui.screen.auth.register.RegisterViewModel
+import br.dev.guisleri.mototrack.ui.screen.auth.register.RegisterViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModel
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.main.MainScreen
@@ -56,6 +59,10 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
 
     var sessionReadError by remember { mutableStateOf(false) }
     var sessionReadAttempt by remember { mutableIntStateOf(0) }
+
+    var registrationSuccessMessage by remember {
+        mutableStateOf<String?>(null)
+    }
 
     LaunchedEffect(tokenStorage, sessionReadAttempt) {
         if (initialDestination != null) return@LaunchedEffect
@@ -132,6 +139,10 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
         )
     }
 
+    val registerViewModelFactory = remember {
+        RegisterViewModelFactory(authRepository)
+    }
+
     val authenticatedRetrofit = remember {
         RetrofitClient.createAuthenticatedRetrofit(
             tokenStorage = tokenStorage
@@ -195,6 +206,12 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                         LoginScreen(
                             uiState = loginUiState,
 
+                            successMessage = registrationSuccessMessage,
+
+                            onSuccessMessageConsumed = {
+                                registrationSuccessMessage = null
+                            },
+
                             onLoginClick = { email, password ->
                                 loginViewModel.login(
                                     email = email,
@@ -213,7 +230,42 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                 AppDestination.REGISTER ->
                     NavEntry(destination) {
 
+                        val registerViewModel: RegisterViewModel = viewModel(
+                            factory = registerViewModelFactory
+                        )
+
+                        val registerUiState by
+                        registerViewModel
+                            .uiState
+                            .collectAsStateWithLifecycle()
+
+                        LaunchedEffect(registerUiState) {
+                            if (registerUiState is RegisterUiState.Success) {
+
+                                registrationSuccessMessage =
+                                    "Conta criada com sucesso! Entre para continuar."
+
+                                backStack.removeLastOrNull()
+                            }
+                        }
+
                         RegisterScreen(
+                            uiState = registerUiState,
+
+                            onRegisterClick = {
+                                    name,
+                                    email,
+                                    password,
+                                    confirmPassword ->
+
+                                registerViewModel.register(
+                                    name = name,
+                                    email = email,
+                                    password = password,
+                                    confirmPassword = confirmPassword
+                                )
+                            },
+
                             onLoginClick = {
                                 backStack.removeLastOrNull()
                             }

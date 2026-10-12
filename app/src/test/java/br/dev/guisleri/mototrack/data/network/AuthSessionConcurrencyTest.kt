@@ -5,6 +5,8 @@ import br.dev.guisleri.mototrack.data.local.TokenStorage
 import br.dev.guisleri.mototrack.data.model.auth.AuthTokenResponseDTO
 import br.dev.guisleri.mototrack.data.model.auth.LoginRequestDTO
 import br.dev.guisleri.mototrack.data.model.auth.RefreshTokenRequestDTO
+import br.dev.guisleri.mototrack.data.model.auth.RegisterRequestDTO
+import br.dev.guisleri.mototrack.data.model.auth.UserResponseDTO
 import br.dev.guisleri.mototrack.data.repository.AuthRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
@@ -509,6 +511,9 @@ class AuthSessionConcurrencyTest {
 
         override suspend fun login(request: LoginRequestDTO) =
             AuthTokenResponseDTO("access-login", "refresh-login")
+
+        override suspend fun register(request: RegisterRequestDTO): UserResponseDTO =
+            throw AssertionError("Unexpected register")
 
         override suspend fun refresh(request: RefreshTokenRequestDTO): AuthTokenResponseDTO {
             refreshCalls.incrementAndGet()

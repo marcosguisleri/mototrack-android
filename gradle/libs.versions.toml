@@ -10,6 +10,7 @@ kotlin = "2.2.10"
 composeBom = "2026.02.01"
 navigation3 = "1.2.0"
 kotlinxSerializationCore = "1.9.0"
+kotlinxCoroutines = "1.9.0"
 coreSplashscreen = "1.2.0"
 retrofit = "3.0.0"
 dataStore = "1.2.1"
@@ -45,6 +46,7 @@ androidx-navigation3-ui = { group = "androidx.navigation3", name = "navigation3-
 
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinxSerializationCore" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationCore" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 
 retrofit-core = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 retrofit-converter-kotlinx-serialization = { module = "com.squareup.retrofit2:converter-kotlinx-serialization", version.ref = "retrofit" }

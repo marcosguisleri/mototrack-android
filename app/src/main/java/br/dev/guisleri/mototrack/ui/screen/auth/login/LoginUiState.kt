@@ -1,4 +1,4 @@
-package br.dev.guisleri.mototrack.ui.screen.auth
+package br.dev.guisleri.mototrack.ui.screen.auth.login
 
 sealed interface LoginUiState {
 

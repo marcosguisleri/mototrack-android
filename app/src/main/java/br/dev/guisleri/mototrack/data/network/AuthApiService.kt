@@ -3,6 +3,8 @@ package br.dev.guisleri.mototrack.data.network
 import br.dev.guisleri.mototrack.data.model.auth.AuthTokenResponseDTO
 import br.dev.guisleri.mototrack.data.model.auth.LoginRequestDTO
 import br.dev.guisleri.mototrack.data.model.auth.RefreshTokenRequestDTO
+import br.dev.guisleri.mototrack.data.model.auth.RegisterRequestDTO
+import br.dev.guisleri.mototrack.data.model.auth.UserResponseDTO
 import retrofit2.http.Body
 import retrofit2.http.POST
 
@@ -23,4 +25,8 @@ interface AuthApiService {
         @Body request: RefreshTokenRequestDTO
     ): AuthTokenResponseDTO
 
+    @POST("users")
+    suspend fun register(
+        @Body request: RegisterRequestDTO
+    ): UserResponseDTO
 }

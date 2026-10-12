@@ -85,6 +85,7 @@ dependencies {
 
     // Unit tests
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 
     // Instrumented tests
     androidTestImplementation(
