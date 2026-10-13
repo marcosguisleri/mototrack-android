@@ -9,9 +9,11 @@ class HomeResponseDTOTest {
     fun decodesBackendCountersBeyondIntRange() {
         val home = Json.decodeFromString<HomeResponseDTO>(
             """{
+                "inProgressTrip": null,
                 "nextTrip": null,
                 "lastCompletedTrip": null,
                 "totalCompletedDistanceKm": 42.5,
+                "distanceThisYearKm": 12.5,
                 "completedTrips": 2147483648,
                 "motorcycleCount": 2147483649
             }"""

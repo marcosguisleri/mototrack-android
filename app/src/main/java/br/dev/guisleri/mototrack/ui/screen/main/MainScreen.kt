@@ -82,6 +82,11 @@ fun MainScreen(
                                         MainDestination.MOTORCYCLES
                                     )
                                 },
+                                onTripsClick = {
+                                    navigateTo(
+                                        MainDestination.TRIPS
+                                    )
+                                },
                                 modifier = Modifier.padding(
                                     innerPadding
                                 )

@@ -24,9 +24,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.heightIn
 import br.dev.guisleri.mototrack.data.model.home.HomeResponseDTO
 import br.dev.guisleri.mototrack.data.model.home.NextTripDTO
 import br.dev.guisleri.mototrack.data.model.home.TripSummaryDTO
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.platform.LocalDensity
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -36,6 +44,7 @@ fun HomeScreen(
     uiState: HomeUiState,
     onRetryClick: () -> Unit,
     onAddMotorcycleClick: () -> Unit,
+    onTripsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -51,6 +60,7 @@ fun HomeScreen(
                 home = uiState.home,
                 highlight = uiState.highlight,
                 onAddMotorcycleClick = onAddMotorcycleClick,
+                onTripsClick = onTripsClick,
                 modifier = modifier
             )
         }
@@ -70,6 +80,7 @@ private fun HomeContent(
     home: HomeResponseDTO,
     highlight: HomeHighlightState,
     onAddMotorcycleClick: () -> Unit,
+    onTripsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -92,7 +103,8 @@ private fun HomeContent(
 
         HomeHighlightCard(
             highlight = highlight,
-            onAddMotorcycleClick = onAddMotorcycleClick
+            onAddMotorcycleClick = onAddMotorcycleClick,
+            onTripsClick = onTripsClick
         )
 
         if (highlight == HomeHighlightState.NoMotorcycle) {
@@ -156,13 +168,15 @@ private fun HomeHeader() {
 @Composable
 private fun HomeHighlightCard(
     highlight: HomeHighlightState,
-    onAddMotorcycleClick: () -> Unit
+    onAddMotorcycleClick: () -> Unit,
+    onTripsClick: () -> Unit
 ) {
     when (highlight) {
 
         is HomeHighlightState.InProgress -> {
             InProgressTripCard(
-                trip = highlight.trip
+                trip = highlight.trip,
+                onTripsClick = onTripsClick
             )
         }
 
@@ -179,14 +193,17 @@ private fun HomeHighlightCard(
         }
 
         HomeHighlightState.NoUpcomingTrip -> {
-            NoUpcomingTripCard()
+            NoUpcomingTripCard(
+                onTripsClick = onTripsClick
+            )
         }
     }
 }
 
 @Composable
 private fun InProgressTripCard(
-    trip: TripSummaryDTO
+    trip: TripSummaryDTO,
+    onTripsClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -244,9 +261,11 @@ private fun InProgressTripCard(
             )
 
             Button(
-                onClick = {
-                    // Navegação será conectada depois.
-                }
+                onClick = onTripsClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.onPrimary,
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
             ) {
                 Text("Ver viagem")
             }
@@ -263,7 +282,7 @@ private fun NoMotorcycleCard(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primary.copy(
-                alpha = 0.08f
+                alpha = 0.07f
             )
         ),
         elevation = CardDefaults.cardElevation(
@@ -273,9 +292,23 @@ private fun NoMotorcycleCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(
+                    horizontal = 24.dp,
+                    vertical = 28.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            Text(
+                text = "SUA GARAGEM",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
 
             Text(
                 text = "Sua garagem está vazia",
@@ -292,7 +325,7 @@ private fun NoMotorcycleCard(
             Text(
                 text = "Cadastre sua primeira moto para começar a planejar e registrar suas jornadas.",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
 
@@ -302,14 +335,13 @@ private fun NoMotorcycleCard(
 
             Button(
                 onClick = onAddMotorcycleClick,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp),
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Text(
                     text = "Cadastrar moto",
-                    modifier = Modifier.padding(
-                        vertical = 4.dp
-                    ),
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -388,25 +420,12 @@ private fun UpcomingTripCard(
                 modifier = Modifier.height(12.dp)
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-
-                Text(
-                    text = formatDistance(
-                        trip.distanceKm
-                    ),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                Text(
-                    text = formatTerrain(
-                        trip.terrain
-                    ),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+            Text(
+                text = "${formatDistance(trip.distanceKm)} • ${
+                    formatTerrain(trip.terrain)
+                }",
+                style = MaterialTheme.typography.bodyMedium
+            )
 
             Spacer(
                 modifier = Modifier.height(8.dp)
@@ -422,7 +441,9 @@ private fun UpcomingTripCard(
 }
 
 @Composable
-private fun NoUpcomingTripCard() {
+private fun NoUpcomingTripCard(
+    onTripsClick: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -458,9 +479,7 @@ private fun NoUpcomingTripCard() {
             )
 
             Button(
-                onClick = {
-                    // Navegação será conectada depois.
-                },
+                onClick = onTripsClick,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Planejar viagem")
@@ -471,9 +490,7 @@ private fun NoUpcomingTripCard() {
             )
 
             OutlinedButton(
-                onClick = {
-                    // Navegação será conectada depois.
-                },
+                onClick = onTripsClick,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Registrar viagem realizada")
@@ -488,6 +505,12 @@ private fun HomeSummarySection(
     completedTrips: Long,
     distanceThisYearKm: Double
 ) {
+    val metrics = listOf(
+        formatDistance(totalDistanceKm) to "Distância total",
+        completedTrips.toString() to "Viagens concluídas",
+        formatDistance(distanceThisYearKm) to "Neste ano"
+    )
+
     Column {
 
         Text(
@@ -501,32 +524,38 @@ private fun HomeSummarySection(
             modifier = Modifier.height(12.dp)
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth()
         ) {
+            val stackMetrics =
+                maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f
 
-            SummaryMetricCard(
-                value = formatDistance(
-                    totalDistanceKm
-                ),
-                label = "Distância total",
-                modifier = Modifier.weight(1f)
-            )
-
-            SummaryMetricCard(
-                value = completedTrips.toString(),
-                label = "Viagens concluídas",
-                modifier = Modifier.weight(1f)
-            )
-
-            SummaryMetricCard(
-                value = formatDistance(
-                    distanceThisYearKm
-                ),
-                label = "Neste ano",
-                modifier = Modifier.weight(1f)
-            )
+            if (stackMetrics) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    metrics.forEach { (value, label) ->
+                        SummaryMetricCard(
+                            value = value,
+                            label = label,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    metrics.forEach { (value, label) ->
+                        SummaryMetricCard(
+                            value = value,
+                            label = label,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -643,27 +672,13 @@ private fun LastCompletedTripCard(
                 modifier = Modifier.height(12.dp)
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-
-                Text(
-                    text = formatDistance(
-                        trip.distanceKm
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Text(
-                    text = formatTerrain(
-                        trip.terrain
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
+            Text(
+                text = "${formatDistance(trip.distanceKm)} • ${
+                    formatTerrain(trip.terrain)
+                }",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
 
             Spacer(
                 modifier = Modifier.height(8.dp)
@@ -700,6 +715,9 @@ private fun HomeError(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -747,28 +765,31 @@ private fun NoMotorcycleBenefits() {
         )
 
         Spacer(
-            modifier = Modifier.height(16.dp)
+            modifier = Modifier.height(18.dp)
         )
 
         EmptyStateBenefit(
+            number = "1",
             title = "Planeje suas viagens",
             description = "Associe sua moto às próximas rotas e organize suas jornadas."
         )
 
         Spacer(
-            modifier = Modifier.height(16.dp)
+            modifier = Modifier.height(20.dp)
         )
 
         EmptyStateBenefit(
+            number = "2",
             title = "Registre seu histórico",
             description = "Guarde as viagens realizadas, distâncias e terrenos percorridos."
         )
 
         Spacer(
-            modifier = Modifier.height(16.dp)
+            modifier = Modifier.height(20.dp)
         )
 
         EmptyStateBenefit(
+            number = "3",
             title = "Acompanhe sua evolução",
             description = "Veja quilômetros percorridos e o histórico das suas aventuras."
         )
@@ -777,27 +798,57 @@ private fun NoMotorcycleBenefits() {
 
 @Composable
 private fun EmptyStateBenefit(
+    number: String,
     title: String,
     description: String
 ) {
-    Column {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
 
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.primary.copy(
+                        alpha = 0.12f
+                    ),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = number,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
 
-        Spacer(
-            modifier = Modifier.height(2.dp)
-        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 14.dp)
+        ) {
 
-        Text(
-            text = description,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            Spacer(
+                modifier = Modifier.height(3.dp)
+            )
+
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
     }
 }
 
