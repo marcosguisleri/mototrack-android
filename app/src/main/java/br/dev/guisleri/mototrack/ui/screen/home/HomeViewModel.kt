@@ -2,6 +2,7 @@ package br.dev.guisleri.mototrack.ui.screen.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import br.dev.guisleri.mototrack.data.model.home.HomeResponseDTO
 import br.dev.guisleri.mototrack.data.repository.HomeRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,10 +36,10 @@ class HomeViewModel(
             try {
                 val home = homeRepository.getHome()
 
-                _uiState.value =
-                    HomeUiState.Success(
-                        home = home
-                    )
+                _uiState.value = HomeUiState.Success(
+                    home = home,
+                    highlight = resolveHighlight(home)
+                )
             } catch (exception: CancellationException) {
                 throw exception
 
@@ -69,5 +70,28 @@ class HomeViewModel(
                     )
             }
         }
+    }
+
+    private fun resolveHighlight(
+        home: HomeResponseDTO
+    ): HomeHighlightState {
+
+        home.inProgressTrip?.let { trip ->
+            return HomeHighlightState.InProgress(
+                trip = trip
+            )
+        }
+
+        if (home.motorcycleCount == 0L) {
+            return HomeHighlightState.NoMotorcycle
+        }
+
+        home.nextTrip?.let { trip ->
+            return HomeHighlightState.UpcomingTrip(
+                trip = trip
+            )
+        }
+
+        return HomeHighlightState.NoUpcomingTrip
     }
 }

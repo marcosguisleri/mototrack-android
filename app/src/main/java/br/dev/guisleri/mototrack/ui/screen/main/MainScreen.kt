@@ -24,27 +24,31 @@ fun MainScreen(
     onLogoutClick: () -> Unit
 ) {
 
-    val backStack = rememberNavBackStack(MainDestination.HOME)
+    val backStack = rememberNavBackStack(
+        MainDestination.HOME
+    )
 
-    val currentDestination = backStack.last() as MainDestination
+    val currentDestination =
+        backStack.last() as MainDestination
+
+    val navigateTo: (MainDestination) -> Unit = { destination ->
+        if (currentDestination != destination) {
+
+            backStack.clear()
+            backStack.add(MainDestination.HOME)
+
+            if (destination != MainDestination.HOME) {
+                backStack.add(destination)
+            }
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
             MotoTrackBottomBar(
                 currentDestination = currentDestination,
-                onDestinationSelected = { destination ->
-
-                    if (currentDestination != destination) {
-
-                        backStack.clear()
-                        backStack.add(MainDestination.HOME)
-
-                        if (destination != MainDestination.HOME) {
-                            backStack.add(destination)
-                        }
-                    }
-                }
+                onDestinationSelected = navigateTo
             )
         }
     ) { innerPadding ->
@@ -57,6 +61,7 @@ fun MainScreen(
                 }
             },
             entryProvider = { destination ->
+
                 when (destination) {
 
                     MainDestination.HOME ->
@@ -72,30 +77,49 @@ fun MainScreen(
                                 onRetryClick = {
                                     homeViewModel.loadHome()
                                 },
-                                modifier = Modifier.padding(innerPadding)
+                                onAddMotorcycleClick = {
+                                    navigateTo(
+                                        MainDestination.MOTORCYCLES
+                                    )
+                                },
+                                modifier = Modifier.padding(
+                                    innerPadding
+                                )
                             )
                         }
 
-                    MainDestination.TRIPS -> NavEntry(destination) {
-                        TripsScreen(
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                    }
+                    MainDestination.TRIPS ->
+                        NavEntry(destination) {
+                            TripsScreen(
+                                modifier = Modifier.padding(
+                                    innerPadding
+                                )
+                            )
+                        }
 
-                    MainDestination.MOTORCYCLES -> NavEntry(destination) {
-                        MotorcyclesScreen(
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                    }
+                    MainDestination.MOTORCYCLES ->
+                        NavEntry(destination) {
+                            MotorcyclesScreen(
+                                modifier = Modifier.padding(
+                                    innerPadding
+                                )
+                            )
+                        }
 
-                    MainDestination.PROFILE -> NavEntry(destination) {
-                        ProfileScreen(
-                            onLogoutClick = onLogoutClick,
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                    }
+                    MainDestination.PROFILE ->
+                        NavEntry(destination) {
+                            ProfileScreen(
+                                onLogoutClick = onLogoutClick,
+                                modifier = Modifier.padding(
+                                    innerPadding
+                                )
+                            )
+                        }
 
-                    else -> error("Unsupported navigation destination: $destination")
+                    else ->
+                        error(
+                            "Unsupported navigation destination: $destination"
+                        )
                 }
             }
         )

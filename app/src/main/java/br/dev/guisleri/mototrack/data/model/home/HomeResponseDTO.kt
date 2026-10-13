@@ -4,9 +4,11 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class HomeResponseDTO(
+    val inProgressTrip: TripSummaryDTO?,
     val nextTrip: NextTripDTO?,
     val lastCompletedTrip: TripSummaryDTO?,
     val totalCompletedDistanceKm: Double,
+    val distanceThisYearKm: Double,
     val completedTrips: Long,
     val motorcycleCount: Long
 )

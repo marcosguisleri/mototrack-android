@@ -7,7 +7,8 @@ sealed interface HomeUiState {
     data object Loading : HomeUiState
 
     data class Success(
-        val home: HomeResponseDTO
+        val home: HomeResponseDTO,
+        val highlight: HomeHighlightState
     ) : HomeUiState
 
     data class Error(
