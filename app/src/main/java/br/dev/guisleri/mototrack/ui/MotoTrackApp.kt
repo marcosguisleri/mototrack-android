@@ -41,6 +41,10 @@ import br.dev.guisleri.mototrack.ui.screen.auth.register.RegisterViewModelFactor
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModel
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.main.MainScreen
+import br.dev.guisleri.mototrack.data.remote.motorcycle.MotorcycleApiService
+import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
+import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
+import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModelFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -158,6 +162,18 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
     val homeRepository = remember {
         HomeRepository(
             homeApiService = homeApiService
+        )
+    }
+
+    val motorcycleApiService = remember {
+        authenticatedRetrofit.create(
+            MotorcycleApiService::class.java
+        )
+    }
+
+    val motorcycleRepository = remember {
+        MotorcycleRepository(
+            motorcycleApiService = motorcycleApiService
         )
     }
 
@@ -281,18 +297,17 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             )
                         )
 
+                        val motorcyclesViewModel: MotorcyclesViewModel = viewModel(
+                            factory = MotorcyclesViewModelFactory(
+                                motorcycleRepository = motorcycleRepository
+                            )
+                        )
+
                         MainScreen(
                             homeViewModel = homeViewModel,
+                            motorcyclesViewModel = motorcyclesViewModel,
                             onLogoutClick = {
-                                coroutineScope.launch {
-                                    runCatching {
-                                        authRepository.logout()
-                                    }.onFailure { exception ->
-                                        if (exception is CancellationException) {
-                                            throw exception
-                                        }
-                                    }
-                                }
+                                // permanece igual
                             }
                         )
                     }

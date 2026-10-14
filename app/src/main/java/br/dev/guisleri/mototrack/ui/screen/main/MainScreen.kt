@@ -15,12 +15,14 @@ import br.dev.guisleri.mototrack.ui.navigation.MotoTrackBottomBar
 import br.dev.guisleri.mototrack.ui.screen.home.HomeScreen
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModel
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesScreen
+import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
 import br.dev.guisleri.mototrack.ui.screen.profile.ProfileScreen
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsScreen
 
 @Composable
 fun MainScreen(
     homeViewModel: HomeViewModel,
+    motorcyclesViewModel: MotorcyclesViewModel,
     onLogoutClick: () -> Unit
 ) {
 
@@ -108,7 +110,22 @@ fun MainScreen(
 
                     MainDestination.MOTORCYCLES ->
                         NavEntry(destination) {
+
+                            val motorcyclesUiState by
+                            motorcyclesViewModel
+                                .uiState
+                                .collectAsStateWithLifecycle()
+
                             MotorcyclesScreen(
+                                uiState = motorcyclesUiState,
+                                onRetryClick = {
+                                    motorcyclesViewModel.loadMotorcycles()
+                                },
+                                onMotorcycleSelected = { motorcycleId ->
+                                    motorcyclesViewModel.selectMotorcycle(
+                                        motorcycleId
+                                    )
+                                },
                                 modifier = Modifier.padding(
                                     innerPadding
                                 )
