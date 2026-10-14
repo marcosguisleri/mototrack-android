@@ -40,6 +40,10 @@ fun MainScreen(
             if (destination != MainDestination.HOME) {
                 backStack.add(destination)
             }
+
+            if (destination == MainDestination.HOME) {
+                homeViewModel.loadHome()
+            }
         }
     }
 

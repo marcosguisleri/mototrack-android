@@ -1,5 +1,6 @@
 package br.dev.guisleri.mototrack.ui.screen.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,15 +27,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import br.dev.guisleri.mototrack.data.model.home.HomeResponseDTO
 import br.dev.guisleri.mototrack.data.model.home.NextTripDTO
 import br.dev.guisleri.mototrack.data.model.home.TripSummaryDTO
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import br.dev.guisleri.mototrack.ui.theme.MotoTrackTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -72,6 +77,28 @@ fun HomeScreen(
                 modifier = modifier
             )
         }
+    }
+}
+
+@Preview(
+    name = "Error",
+    group = "Home states",
+    widthDp = 360,
+    heightDp = 640,
+    showBackground = true,
+    backgroundColor = 0xFFF5F7FA
+)
+@Composable
+private fun HomeScreenErrorPreview() {
+    MotoTrackTheme {
+        HomeScreen(
+            uiState = HomeUiState.Error(
+                message = "Não foi possível comunicar com o servidor. Tente novamente."
+            ),
+            onRetryClick = {},
+            onAddMotorcycleClick = {},
+            onTripsClick = {}
+        )
     }
 }
 
@@ -136,7 +163,8 @@ private fun HomeContent(
             )
 
             LastCompletedTripSection(
-                trip = trip
+                trip = trip,
+                onClick = onTripsClick
             )
         }
     }
@@ -176,7 +204,7 @@ private fun HomeHighlightCard(
         is HomeHighlightState.InProgress -> {
             InProgressTripCard(
                 trip = highlight.trip,
-                onTripsClick = onTripsClick
+                onClick = onTripsClick
             )
         }
 
@@ -188,7 +216,8 @@ private fun HomeHighlightCard(
 
         is HomeHighlightState.UpcomingTrip -> {
             UpcomingTripCard(
-                trip = highlight.trip
+                trip = highlight.trip,
+                onClick = onTripsClick
             )
         }
 
@@ -203,13 +232,16 @@ private fun HomeHighlightCard(
 @Composable
 private fun InProgressTripCard(
     trip: TripSummaryDTO,
-    onTripsClick: () -> Unit
+    onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primary
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 0.dp
         )
     ) {
         Column(
@@ -235,7 +267,7 @@ private fun InProgressTripCard(
             )
 
             Spacer(
-                modifier = Modifier.height(12.dp)
+                modifier = Modifier.height(14.dp)
             )
 
             Text(
@@ -253,21 +285,30 @@ private fun InProgressTripCard(
             Text(
                 text = "${trip.motorcycle.brand} ${trip.motorcycle.model}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimary
+                color = MaterialTheme.colorScheme.onPrimary.copy(
+                    alpha = 0.8f
+                )
             )
 
             Spacer(
-                modifier = Modifier.height(18.dp)
+                modifier = Modifier.height(20.dp)
             )
 
             Button(
-                onClick = onTripsClick,
+                onClick = onClick,
+                modifier = Modifier.heightIn(
+                    min = 48.dp
+                ),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.primary
-                )
+                ),
+                shape = RoundedCornerShape(14.dp)
             ) {
-                Text("Ver viagem")
+                Text(
+                    text = "Retomar viagem",
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
@@ -351,16 +392,18 @@ private fun NoMotorcycleCard(
 
 @Composable
 private fun UpcomingTripCard(
-    trip: NextTripDTO
+    trip: NextTripDTO,
+    onClick: () -> Unit
 ) {
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.inverseSurface
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
+            defaultElevation = 0.dp
         )
     ) {
         Column(
@@ -371,7 +414,7 @@ private fun UpcomingTripCard(
                 text = "PRÓXIMA VIAGEM",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.secondary
             )
 
             Spacer(
@@ -381,19 +424,20 @@ private fun UpcomingTripCard(
             Text(
                 text = "${trip.origin} → ${trip.destination}",
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.inverseOnSurface
             )
 
             Spacer(
-                modifier = Modifier.height(12.dp)
+                modifier = Modifier.height(14.dp)
             )
 
             Text(
-                text = formatTripDate(
-                    trip.tripDate
-                ),
+                text = formatTripDate(trip.tripDate),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.inverseOnSurface.copy(
+                    alpha = 0.75f
+                )
             )
 
             Spacer(
@@ -402,40 +446,53 @@ private fun UpcomingTripCard(
 
             Text(
                 text = when {
-                    trip.daysUntil == 0L ->
-                        "É hoje!"
-
-                    trip.daysUntil == 1L ->
-                        "Amanhã"
-
-                    else ->
-                        "Daqui a ${trip.daysUntil} dias"
+                    trip.daysUntil == 0L -> "É hoje!"
+                    trip.daysUntil == 1L -> "Amanhã"
+                    else -> "Daqui a ${trip.daysUntil} dias"
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.secondary
             )
 
             Spacer(
-                modifier = Modifier.height(12.dp)
+                modifier = Modifier.height(16.dp)
             )
 
             Text(
-                text = "${formatDistance(trip.distanceKm)} • ${
+                text = "${formatDistance(trip.distanceKm)}  •  ${
                     formatTerrain(trip.terrain)
                 }",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.inverseOnSurface
             )
 
             Spacer(
-                modifier = Modifier.height(8.dp)
+                modifier = Modifier.height(6.dp)
             )
 
-            Text(
-                text = "${trip.motorcycle.brand} ${trip.motorcycle.model}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                Text(
+                    text = "${trip.motorcycle.brand} ${trip.motorcycle.model}",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(
+                        alpha = 0.75f
+                    )
+                )
+
+                Text(
+                    text = "›",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Light,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
         }
     }
 }
@@ -524,38 +581,35 @@ private fun HomeSummarySection(
             modifier = Modifier.height(12.dp)
         )
 
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            val stackMetrics =
-                maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f
+            SummaryMetricCard(
+                value = formatDistance(totalDistanceKm),
+                label = "Distância total",
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
 
-            if (stackMetrics) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    metrics.forEach { (value, label) ->
-                        SummaryMetricCard(
-                            value = value,
-                            label = label,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    metrics.forEach { (value, label) ->
-                        SummaryMetricCard(
-                            value = value,
-                            label = label,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
+            SummaryMetricCard(
+                value = completedTrips.toString(),
+                label = "Viagens",
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
+
+            SummaryMetricCard(
+                value = formatDistance(distanceThisYearKm),
+                label = "Neste ano",
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
         }
     }
 }
@@ -568,30 +622,48 @@ private fun SummaryMetricCard(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp
+            defaultElevation = 0.dp
         )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = 10.dp,
+                    horizontal = 14.dp,
                     vertical = 16.dp
-                ),
-            horizontalAlignment = Alignment.CenterHorizontally
+                )
         ) {
+
+            Box(
+                modifier = Modifier
+                    .size(
+                        width = 28.dp,
+                        height = 4.dp
+                    )
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary,
+                        shape = RoundedCornerShape(50)
+                    )
+            )
+
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
 
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Spacer(
@@ -600,9 +672,8 @@ private fun SummaryMetricCard(
 
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -610,7 +681,8 @@ private fun SummaryMetricCard(
 
 @Composable
 private fun LastCompletedTripSection(
-    trip: TripSummaryDTO
+    trip: TripSummaryDTO,
+    onClick: () -> Unit
 ) {
     Column {
 
@@ -626,67 +698,99 @@ private fun LastCompletedTripSection(
         )
 
         LastCompletedTripCard(
-            trip = trip
+            trip = trip,
+            onClick = onClick
         )
     }
 }
 
 @Composable
 private fun LastCompletedTripCard(
-    trip: TripSummaryDTO
+    trip: TripSummaryDTO,
+    onClick: () -> Unit
 ) {
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp
+            defaultElevation = 0.dp
         )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
 
-            Text(
-                text = "${trip.origin} → ${trip.destination}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+            Box(
+                modifier = Modifier
+                    .size(
+                        width = 4.dp,
+                        height = 56.dp
+                    )
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary,
+                        shape = RoundedCornerShape(50)
+                    )
             )
 
             Spacer(
-                modifier = Modifier.height(8.dp)
+                modifier = Modifier.width(14.dp)
             )
 
-            Text(
-                text = formatTripDate(
-                    trip.tripDate
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+
+                Text(
+                    text = "${trip.origin} → ${trip.destination}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(
+                    modifier = Modifier.height(6.dp)
+                )
+
+                Text(
+                    text = buildString {
+                        append(formatTripDate(trip.tripDate))
+                        append("  •  ")
+                        append(formatDistance(trip.distanceKm))
+                        append("  •  ")
+                        append(formatTerrain(trip.terrain))
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(
+                    modifier = Modifier.height(5.dp)
+                )
+
+                Text(
+                    text = "${trip.motorcycle.brand} ${trip.motorcycle.model}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             Spacer(
-                modifier = Modifier.height(12.dp)
+                modifier = Modifier.width(8.dp)
             )
 
             Text(
-                text = "${formatDistance(trip.distanceKm)} • ${
-                    formatTerrain(trip.terrain)
-                }",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
-
-            Text(
-                text = "${trip.motorcycle.brand} ${trip.motorcycle.model}",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "›",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Light,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -698,12 +802,84 @@ private fun HomeLoading(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = 20.dp,
+                vertical = 20.dp
+            )
     ) {
-        CircularProgressIndicator()
+
+        LoadingBlock(
+            modifier = Modifier
+                .width(110.dp)
+                .height(28.dp)
+        )
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+        LoadingBlock(
+            modifier = Modifier
+                .width(210.dp)
+                .height(18.dp)
+        )
+
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
+
+        LoadingBlock(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp),
+            cornerRadius = 20.dp
+        )
+
+        Spacer(
+            modifier = Modifier.height(28.dp)
+        )
+
+        LoadingBlock(
+            modifier = Modifier
+                .width(180.dp)
+                .height(20.dp)
+        )
+
+        Spacer(
+            modifier = Modifier.height(14.dp)
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(92.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            repeat(3) {
+                LoadingBlock(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    cornerRadius = 18.dp
+                )
+            }
+        }
     }
+}
+
+@Composable
+private fun LoadingBlock(
+    modifier: Modifier = Modifier,
+    cornerRadius: Dp = 8.dp
+) {
+    Box(
+        modifier = modifier.background(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(cornerRadius)
+        )
+    )
 }
 
 @Composable
@@ -715,40 +891,87 @@ private fun HomeError(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(
-                rememberScrollState()
-            )
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+            .verticalScroll(rememberScrollState())
+            .padding(
+                horizontal = 24.dp,
+                vertical = 32.dp
+            ),
+        verticalArrangement = Arrangement.Center
     ) {
 
-        Text(
-            text = "Não foi possível carregar a Home",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
-
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(
-            modifier = Modifier.height(20.dp)
-        )
-
-        Button(
-            onClick = onRetryClick
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            border = BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 0.dp
+            )
         ) {
-            Text("Tentar novamente")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+
+                Box(
+                    modifier = Modifier
+                        .size(
+                            width = 48.dp,
+                            height = 6.dp
+                        )
+                        .background(
+                            color = MaterialTheme.colorScheme.secondary,
+                            shape = RoundedCornerShape(50)
+                        )
+                )
+
+                Spacer(
+                    modifier = Modifier.height(24.dp)
+                )
+
+                Text(
+                    text = "Não foi possível carregar",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(
+                    modifier = Modifier.height(8.dp)
+                )
+
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(
+                    modifier = Modifier.height(24.dp)
+                )
+
+                Button(
+                    onClick = onRetryClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 52.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        text = "Tentar novamente",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
         }
     }
 }
@@ -870,15 +1093,14 @@ private fun formatTripDate(
 private fun formatDistance(
     distanceKm: Double
 ): String {
-    return if (distanceKm % 1.0 == 0.0) {
-        "${distanceKm.toInt()} km"
-    } else {
-        String.format(
-            Locale("pt", "BR"),
-            "%.1f km",
-            distanceKm
-        )
+    val formatter = java.text.NumberFormat.getNumberInstance(
+        Locale.forLanguageTag("pt-BR")
+    ).apply {
+        minimumFractionDigits = 0
+        maximumFractionDigits = 1
     }
+
+    return "${formatter.format(distanceKm)} km"
 }
 
 private fun formatTerrain(

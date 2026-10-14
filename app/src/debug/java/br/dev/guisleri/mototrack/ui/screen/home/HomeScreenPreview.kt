@@ -10,7 +10,8 @@ import br.dev.guisleri.mototrack.data.model.home.TripSummaryDTO
 import br.dev.guisleri.mototrack.ui.theme.MotoTrackTheme
 
 @Preview(
-    name = "Carregando",
+    name = "Loading",
+    group = "Home states",
     widthDp = 360,
     heightDp = 640,
     showBackground = true,
@@ -24,7 +25,8 @@ private fun HomeLoadingPreview() {
 }
 
 @Preview(
-    name = "Erro",
+    name = "Error",
+    group = "Home states",
     widthDp = 360,
     heightDp = 640,
     showBackground = true,
@@ -40,7 +42,8 @@ private fun HomeErrorPreview() {
 }
 
 @Preview(
-    name = "Sem motocicleta",
+    name = "Success — NoMotorcycle",
+    group = "Home states",
     widthDp = 360,
     heightDp = 800,
     showBackground = true,
@@ -59,7 +62,8 @@ private fun HomeNoMotorcyclePreview() {
 }
 
 @Preview(
-    name = "Viagem em andamento",
+    name = "Success — InProgress",
+    group = "Home states",
     widthDp = 360,
     heightDp = 800,
     showBackground = true,
@@ -90,7 +94,8 @@ private fun HomeInProgressPreview() {
 }
 
 @Preview(
-    name = "Próxima viagem",
+    name = "Success — UpcomingTrip",
+    group = "Home states",
     widthDp = 360,
     heightDp = 800,
     showBackground = true,
@@ -114,7 +119,8 @@ private fun HomeUpcomingTripPreview() {
 }
 
 @Preview(
-    name = "Sem próxima viagem",
+    name = "Success — NoUpcomingTrip",
+    group = "Home states",
     widthDp = 360,
     heightDp = 800,
     showBackground = true,
@@ -134,6 +140,7 @@ private fun HomeNoUpcomingTripPreview() {
 
 @Preview(
     name = "Compacta, fonte 2x e textos longos",
+    group = "Home accessibility",
     widthDp = 320,
     heightDp = 640,
     fontScale = 2f,
