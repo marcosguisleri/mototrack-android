@@ -307,7 +307,9 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             homeViewModel = homeViewModel,
                             motorcyclesViewModel = motorcyclesViewModel,
                             onLogoutClick = {
-                                // permanece igual
+                                coroutineScope.launch {
+                                    authRepository.logout()
+                                }
                             }
                         )
                     }
