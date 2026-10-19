@@ -108,8 +108,16 @@ fun MainScreen(
                                 .uiState
                                 .collectAsStateWithLifecycle()
 
+                            val isTripsRefreshing by tripsViewModel
+                                .isRefreshing
+                                .collectAsStateWithLifecycle()
+
                             TripsScreen(
                                 uiState = tripsUiState,
+                                isRefreshing = isTripsRefreshing,
+                                onRefresh = {
+                                    tripsViewModel.refreshTrips()
+                                },
                                 onRetryClick = {
                                     tripsViewModel.loadTrips()
                                 },

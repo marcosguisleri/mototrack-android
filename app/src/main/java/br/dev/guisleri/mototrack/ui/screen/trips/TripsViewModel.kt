@@ -1,5 +1,6 @@
 package br.dev.guisleri.mototrack.ui.screen.trips
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.dev.guisleri.mototrack.data.repository.TripRepository
@@ -21,6 +22,11 @@ class TripsViewModel(
 
     val uiState: StateFlow<TripsUiState> =
         _uiState.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+
+    val isRefreshing: StateFlow<Boolean> =
+        _isRefreshing.asStateFlow()
 
     init {
         loadTrips()
@@ -57,5 +63,43 @@ class TripsViewModel(
         }
     }
 
+    fun refreshTrips() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+
+            try {
+                val trips = tripRepository.getTrips()
+
+                _uiState.value =
+                    if (trips.isEmpty()) {
+                        TripsUiState.Empty
+                    } else {
+                        TripsUiState.Success(
+                            trips = trips
+                        )
+                    }
+
+            } catch (exception: CancellationException) {
+                throw exception
+
+            } catch (exception: IOException) {
+                Log.e(
+                    "TripsViewModel",
+                    "Failed to refresh trips due to network error.",
+                    exception
+                )
+
+            } catch (exception: Exception) {
+                Log.e(
+                    "TripsViewModel",
+                    "Failed to refresh trips.",
+                    exception
+                )
+
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
 
 }
