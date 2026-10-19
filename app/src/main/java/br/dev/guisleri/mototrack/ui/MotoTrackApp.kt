@@ -42,9 +42,13 @@ import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModel
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.main.MainScreen
 import br.dev.guisleri.mototrack.data.remote.motorcycle.MotorcycleApiService
+import br.dev.guisleri.mototrack.data.remote.trip.TripApiService
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
+import br.dev.guisleri.mototrack.data.repository.TripRepository
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModelFactory
+import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModel
+import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModelFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -177,6 +181,16 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
         )
     }
 
+    val tripApiService = remember(authenticatedRetrofit) {
+        authenticatedRetrofit.create(TripApiService::class.java)
+    }
+
+    val tripRepository = remember(tripApiService) {
+        TripRepository(
+            tripApiService = tripApiService
+        )
+    }
+
     val coroutineScope = rememberCoroutineScope()
 
     val loginViewModel: LoginViewModel = viewModel(
@@ -303,9 +317,16 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             )
                         )
 
+                        val tripsViewModel: TripsViewModel = viewModel(
+                            factory = TripsViewModelFactory(
+                                tripRepository = tripRepository
+                            )
+                        )
+
                         MainScreen(
                             homeViewModel = homeViewModel,
                             motorcyclesViewModel = motorcyclesViewModel,
+                            tripsViewModel = tripsViewModel,
                             onLogoutClick = {
                                 coroutineScope.launch {
                                     authRepository.logout()

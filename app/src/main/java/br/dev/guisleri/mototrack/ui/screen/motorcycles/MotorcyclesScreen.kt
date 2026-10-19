@@ -75,10 +75,6 @@ import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleTripSummaryDTO
 import java.text.NumberFormat
 import java.util.Locale
 
-// ---------------------------------------------------------------------------
-// Colors that only exist on this screen (highlight tiles and terrain bars)
-// ---------------------------------------------------------------------------
-
 private val TrophyContainer = Color(0xFFFFF4D6)
 private val TrophyTint = Color(0xFFF59E0B)
 private val PinContainer = Color(0xFFFDE8E8)
@@ -103,16 +99,12 @@ private data class TerrainItem(
     val color: Color
 )
 
-// Same keys the API sends in terrainStatistics
 private val TerrainItems = listOf(
     TerrainItem("ASPHALT", "Asfalto", Icons.Outlined.Route, AsphaltColor),
     TerrainItem("MIXED", "Misto", Icons.Outlined.Terrain, MixedColor),
     TerrainItem("OFF_ROAD", "Off-road", Icons.Outlined.Park, OffRoadColor)
 )
 
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
 
 @Composable
 fun MotorcyclesScreen(
@@ -221,10 +213,6 @@ private fun MotorcyclesContent(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Top bar and selector
-// ---------------------------------------------------------------------------
-
 @Composable
 private fun MotorcyclesTopBar(
     onSettingsClick: () -> Unit
@@ -311,10 +299,6 @@ private fun MotorcycleSelector(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Hero
-// ---------------------------------------------------------------------------
-
 @Composable
 private fun MotorcycleHero(
     motorcycle: MotorcycleResponseDTO
@@ -388,7 +372,6 @@ private fun MotorcycleHero(
     }
 }
 
-/** Faint mountain range behind the bike, like the misty background of the mockup. */
 @Composable
 private fun MistyMountains(
     modifier: Modifier = Modifier
