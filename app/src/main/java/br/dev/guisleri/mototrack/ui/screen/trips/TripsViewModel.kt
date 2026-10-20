@@ -1,9 +1,10 @@
 package br.dev.guisleri.mototrack.ui.screen.trips
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.data.repository.TripRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,38 +24,34 @@ class TripsViewModel(
     val uiState: StateFlow<TripsUiState> =
         _uiState.asStateFlow()
 
-    private val _isRefreshing = MutableStateFlow(false)
+    private val _isRefreshing =
+        MutableStateFlow(false)
 
     val isRefreshing: StateFlow<Boolean> =
         _isRefreshing.asStateFlow()
+
+    private var tripsJob: Job? = null
 
     init {
         loadTrips()
     }
 
     fun loadTrips() {
+        tripsJob?.cancel()
+        _isRefreshing.value = false
         _uiState.value = TripsUiState.Loading
 
-        viewModelScope.launch {
+        tripsJob = viewModelScope.launch {
             try {
-                val trips = tripRepository.getTrips()
-
-                if (trips.isEmpty()) {
-                    _uiState.value = TripsUiState.Empty
-
-                    return@launch
-                }
-
-                _uiState.value = TripsUiState.Success(
-                    trips = trips
-                )
-
+                publishTrips(tripRepository.getTrips())
             } catch (exception: CancellationException) {
                 throw exception
+
             } catch (exception: IOException) {
                 _uiState.value = TripsUiState.Error(
                     message = "Não foi possível comunicar com o servidor."
                 )
+
             } catch (exception: Exception) {
                 _uiState.value = TripsUiState.Error(
                     message = "Não foi possível carregar as viagens."
@@ -64,36 +61,26 @@ class TripsViewModel(
     }
 
     fun refreshTrips() {
-        viewModelScope.launch {
-            _isRefreshing.value = true
+        if (tripsJob?.isActive == true) return
+        val previousSuccess = _uiState.value as? TripsUiState.Success
+            ?: return
 
+        _isRefreshing.value = true
+        tripsJob = viewModelScope.launch {
             try {
-                val trips = tripRepository.getTrips()
-
-                _uiState.value =
-                    if (trips.isEmpty()) {
-                        TripsUiState.Empty
-                    } else {
-                        TripsUiState.Success(
-                            trips = trips
-                        )
-                    }
-
+                publishTrips(tripRepository.getTrips())
             } catch (exception: CancellationException) {
                 throw exception
 
             } catch (exception: IOException) {
-                Log.e(
-                    "TripsViewModel",
-                    "Failed to refresh trips due to network error.",
-                    exception
+                _uiState.value = previousSuccess.copy(
+                    refreshErrorMessage =
+                        "Não foi possível comunicar com o servidor."
                 )
 
             } catch (exception: Exception) {
-                Log.e(
-                    "TripsViewModel",
-                    "Failed to refresh trips.",
-                    exception
+                _uiState.value = previousSuccess.copy(
+                    refreshErrorMessage = "Não foi possível atualizar as viagens."
                 )
 
             } finally {
@@ -102,4 +89,11 @@ class TripsViewModel(
         }
     }
 
+    private fun publishTrips(trips: List<TripResponseDTO>) {
+        _uiState.value = if (trips.isEmpty()) {
+            TripsUiState.Empty
+        } else {
+            TripsUiState.Success(trips = trips)
+        }
+    }
 }

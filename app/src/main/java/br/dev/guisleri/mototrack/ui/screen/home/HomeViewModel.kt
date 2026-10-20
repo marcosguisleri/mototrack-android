@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import br.dev.guisleri.mototrack.data.model.home.HomeResponseDTO
 import br.dev.guisleri.mototrack.data.repository.HomeRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,15 +25,25 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> =
         _uiState.asStateFlow()
 
+    private var loadJob: Job? = null
+
     init {
         loadHome()
     }
 
     fun loadHome() {
-        viewModelScope.launch {
-
+        loadJob?.cancel()
+        val previousSuccess = _uiState.value as? HomeUiState.Success
+        if (previousSuccess == null) {
             _uiState.value = HomeUiState.Loading
+        } else {
+            _uiState.value = previousSuccess.copy(
+                isRefreshing = true,
+                refreshErrorMessage = null
+            )
+        }
 
+        loadJob = viewModelScope.launch {
             try {
                 val home = homeRepository.getHome()
 
@@ -44,7 +55,6 @@ class HomeViewModel(
                 throw exception
 
             } catch (exception: HttpException) {
-
                 val message =
                     when (exception.code()) {
                         401 -> "Sua sessão não é mais válida."
@@ -52,24 +62,28 @@ class HomeViewModel(
                         else -> "Não foi possível carregar a Home."
                     }
 
-                _uiState.value =
-                    HomeUiState.Error(message)
+                showLoadError(previousSuccess, message)
 
             } catch (exception: IOException) {
-
-                _uiState.value =
-                    HomeUiState.Error(
-                        "Não foi possível comunicar com o servidor. Tente novamente."
-                    )
+                showLoadError(
+                    previousSuccess,
+                    "Não foi possível comunicar com o servidor. Tente novamente."
+                )
 
             } catch (exception: Exception) {
-
-                _uiState.value =
-                    HomeUiState.Error(
-                        "Ocorreu um erro inesperado."
-                    )
+                showLoadError(previousSuccess, "Ocorreu um erro inesperado.")
             }
         }
+    }
+
+    private fun showLoadError(
+        previousSuccess: HomeUiState.Success?,
+        message: String
+    ) {
+        _uiState.value = previousSuccess?.copy(
+            isRefreshing = false,
+            refreshErrorMessage = message
+        ) ?: HomeUiState.Error(message)
     }
 
     private fun resolveHighlight(

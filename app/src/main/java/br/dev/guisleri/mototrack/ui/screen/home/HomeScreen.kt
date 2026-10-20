@@ -38,6 +38,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -105,6 +106,8 @@ fun HomeScreen(
             HomeContent(
                 home = uiState.home,
                 highlight = uiState.highlight,
+                isRefreshing = uiState.isRefreshing,
+                refreshErrorMessage = uiState.refreshErrorMessage,
                 onAddMotorcycleClick = onAddMotorcycleClick,
                 onTripsClick = onTripsClick,
                 modifier = modifier
@@ -167,6 +170,8 @@ private fun HomeScreenLoadingPreview() {
 private fun HomeContent(
     home: HomeResponseDTO,
     highlight: HomeHighlightState,
+    isRefreshing: Boolean,
+    refreshErrorMessage: String?,
     onAddMotorcycleClick: () -> Unit,
     onTripsClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -182,6 +187,22 @@ private fun HomeContent(
     ) {
 
         HomeHeader()
+
+        refreshErrorMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+        if (isRefreshing) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 

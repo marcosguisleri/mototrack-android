@@ -51,6 +51,8 @@ import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModelFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import java.io.IOException
+import retrofit2.HttpException
 
 @Composable
 fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
@@ -70,6 +72,13 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
 
     var registrationSuccessMessage by remember {
         mutableStateOf<String?>(null)
+    }
+
+    var logoutErrorMessage by remember {
+        mutableStateOf<String?>(null)
+    }
+    var isLoggingOut by remember {
+        mutableStateOf(false)
     }
 
     LaunchedEffect(tokenStorage, sessionReadAttempt) {
@@ -100,6 +109,19 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                     sessionReadAttempt++
                 }) {
                     Text("Tentar novamente")
+                }
+            }
+        )
+    }
+
+    logoutErrorMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { logoutErrorMessage = null },
+            title = { Text("Não foi possível encerrar a sessão no servidor") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { logoutErrorMessage = null }) {
+                    Text("OK")
                 }
             }
         )
@@ -327,9 +349,30 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             homeViewModel = homeViewModel,
                             motorcyclesViewModel = motorcyclesViewModel,
                             tripsViewModel = tripsViewModel,
+                            tripRepository = tripRepository,
+                            isLoggingOut = isLoggingOut,
                             onLogoutClick = {
-                                coroutineScope.launch {
-                                    authRepository.logout()
+                                if (!isLoggingOut) {
+                                    coroutineScope.launch {
+                                        isLoggingOut = true
+                                        logoutErrorMessage = null
+                                        try {
+                                            authRepository.logout()
+                                        } catch (exception: CancellationException) {
+                                            throw exception
+                                        } catch (exception: HttpException) {
+                                            logoutErrorMessage =
+                                                "A sessão foi removida deste dispositivo, mas o servidor recusou a revogação."
+                                        } catch (exception: IOException) {
+                                            logoutErrorMessage =
+                                                "A sessão foi removida deste dispositivo, mas não foi possível confirmar a revogação no servidor."
+                                        } catch (exception: Exception) {
+                                            logoutErrorMessage =
+                                                "A sessão foi removida deste dispositivo, mas ocorreu um erro ao notificar o servidor."
+                                        } finally {
+                                            isLoggingOut = false
+                                        }
+                                    }
                                 }
                             }
                         )

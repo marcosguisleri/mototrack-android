@@ -9,7 +9,8 @@ sealed interface TripsUiState {
     data object Empty : TripsUiState
 
     data class Success(
-        val trips: List<TripResponseDTO>
+        val trips: List<TripResponseDTO>,
+        val refreshErrorMessage: String? = null
     ) : TripsUiState
 
     data class Error(

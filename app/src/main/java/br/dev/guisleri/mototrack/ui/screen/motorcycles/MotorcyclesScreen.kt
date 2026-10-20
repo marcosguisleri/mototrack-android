@@ -110,6 +110,7 @@ private val TerrainItems = listOf(
 fun MotorcyclesScreen(
     uiState: MotorcyclesUiState,
     onRetryClick: () -> Unit,
+    onRetryStatisticsClick: () -> Unit,
     onMotorcycleSelected: (Long) -> Unit,
     modifier: Modifier = Modifier,
     onTripsClick: () -> Unit = {},
@@ -141,6 +142,7 @@ fun MotorcyclesScreen(
             MotorcyclesContent(
                 uiState = uiState,
                 onRetryClick = onRetryClick,
+                onRetryStatisticsClick = onRetryStatisticsClick,
                 onMotorcycleSelected = onMotorcycleSelected,
                 onTripsClick = onTripsClick,
                 onSettingsClick = onSettingsClick,
@@ -154,6 +156,7 @@ fun MotorcyclesScreen(
 private fun MotorcyclesContent(
     uiState: MotorcyclesUiState.Success,
     onRetryClick: () -> Unit,
+    onRetryStatisticsClick: () -> Unit,
     onMotorcycleSelected: (Long) -> Unit,
     onTripsClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -199,7 +202,7 @@ private fun MotorcyclesContent(
             is MotorcycleStatisticsUiState.Error -> {
                 StatisticsError(
                     message = statisticsState.message,
-                    onRetryClick = onRetryClick
+                    onRetryClick = onRetryStatisticsClick
                 )
             }
 

@@ -9,6 +9,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
+import java.util.UUID
 
 private val Context.authDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "auth"
@@ -23,6 +24,7 @@ class TokenStorage internal constructor(
     private companion object {
         val ACCESS_TOKEN = stringPreferencesKey("access_token")
         val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
+        val SESSION_ID = stringPreferencesKey("session_id")
     }
 
     val accessToken: Flow<String?> =
@@ -51,7 +53,42 @@ class TokenStorage internal constructor(
         dataStore.edit { preferences ->
             preferences[ACCESS_TOKEN] = accessToken
             preferences[REFRESH_TOKEN] = refreshToken
+            preferences[SESSION_ID] = UUID.randomUUID().toString()
         }
+    }
+
+    suspend fun getSessionSnapshot(): TokenSessionSnapshot? {
+        repeat(2) {
+            val preferences = dataStore.data.first()
+            val accessToken = preferences[ACCESS_TOKEN]
+            val refreshToken = preferences[REFRESH_TOKEN]
+            if (accessToken.isNullOrBlank() || refreshToken.isNullOrBlank()) {
+                return null
+            }
+            preferences[SESSION_ID]?.let { sessionId ->
+                return TokenSessionSnapshot(accessToken, refreshToken, sessionId)
+            }
+
+            var snapshot: TokenSessionSnapshot? = null
+            dataStore.edit { current ->
+                if (
+                    current[ACCESS_TOKEN] == accessToken &&
+                    current[REFRESH_TOKEN] == refreshToken
+                ) {
+                    val sessionId = current[SESSION_ID]
+                        ?: UUID.randomUUID().toString().also {
+                            current[SESSION_ID] = it
+                        }
+                    snapshot = TokenSessionSnapshot(
+                        accessToken,
+                        refreshToken,
+                        sessionId
+                    )
+                }
+            }
+            snapshot?.let { return it }
+        }
+        return null
     }
 
     suspend fun clearTokens() {
@@ -73,6 +110,9 @@ class TokenStorage internal constructor(
             if (preferences[REFRESH_TOKEN] == expectedRefreshToken) {
                 preferences[ACCESS_TOKEN] = accessToken
                 preferences[REFRESH_TOKEN] = refreshToken
+                if (preferences[SESSION_ID] == null) {
+                    preferences[SESSION_ID] = UUID.randomUUID().toString()
+                }
                 saved = true
             }
         }
@@ -87,6 +127,7 @@ class TokenStorage internal constructor(
             if (preferences[REFRESH_TOKEN] == expectedRefreshToken) {
                 preferences.remove(ACCESS_TOKEN)
                 preferences.remove(REFRESH_TOKEN)
+                preferences.remove(SESSION_ID)
                 cleared = true
             }
         }
@@ -99,6 +140,7 @@ class TokenStorage internal constructor(
             refreshToken = preferences[REFRESH_TOKEN]
             preferences.remove(ACCESS_TOKEN)
             preferences.remove(REFRESH_TOKEN)
+            preferences.remove(SESSION_ID)
         }
         return refreshToken
     }
@@ -115,3 +157,9 @@ class TokenStorage internal constructor(
         return accessToken.first()
     }
 }
+
+data class TokenSessionSnapshot(
+    val accessToken: String,
+    val refreshToken: String,
+    val sessionId: String
+)

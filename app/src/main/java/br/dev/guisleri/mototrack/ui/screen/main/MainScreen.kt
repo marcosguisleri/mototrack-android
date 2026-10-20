@@ -7,11 +7,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import br.dev.guisleri.mototrack.data.repository.TripRepository
 import br.dev.guisleri.mototrack.ui.navigation.MainDestination
 import br.dev.guisleri.mototrack.ui.navigation.MotoTrackBottomBar
+import br.dev.guisleri.mototrack.ui.navigation.TripDetailsDestination
 import br.dev.guisleri.mototrack.ui.screen.home.HomeScreen
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModel
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesScreen
@@ -19,12 +24,17 @@ import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
 import br.dev.guisleri.mototrack.ui.screen.profile.ProfileScreen
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsScreen
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModel
+import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsScreen
+import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsViewModel
+import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsViewModelFactory
 
 @Composable
 fun MainScreen(
     homeViewModel: HomeViewModel,
     motorcyclesViewModel: MotorcyclesViewModel,
     tripsViewModel: TripsViewModel,
+    tripRepository: TripRepository,
+    isLoggingOut: Boolean = false,
     onLogoutClick: () -> Unit
 ) {
 
@@ -33,7 +43,10 @@ fun MainScreen(
     )
 
     val currentDestination =
-        backStack.last() as MainDestination
+        backStack
+            .filterIsInstance<MainDestination>()
+            .lastOrNull()
+            ?: MainDestination.HOME
 
     val navigateTo: (MainDestination) -> Unit = { destination ->
         if (currentDestination != destination) {
@@ -51,19 +64,32 @@ fun MainScreen(
         }
     }
 
+    val showBottomBar =
+        backStack.lastOrNull() is MainDestination
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            MotoTrackBottomBar(
-                currentDestination = currentDestination,
-                onDestinationSelected = navigateTo
-            )
+            if (showBottomBar) {
+                MotoTrackBottomBar(
+                    currentDestination = currentDestination,
+                    onDestinationSelected = navigateTo
+                )
+            }
         }
     ) { innerPadding ->
 
         NavDisplay(
             backStack = backStack,
+            entryDecorators = listOf(
+                rememberSaveableStateHolderNavEntryDecorator(),
+                rememberViewModelStoreNavEntryDecorator()
+            ),
             onBack = {
+                if (backStack.lastOrNull() is TripDetailsDestination) {
+                    tripsViewModel.refreshTrips()
+                }
+
                 if (backStack.size > 1) {
                     backStack.removeLastOrNull()
                 }
@@ -121,6 +147,13 @@ fun MainScreen(
                                 onRetryClick = {
                                     tripsViewModel.loadTrips()
                                 },
+                                onTripClick = { tripId ->
+                                    backStack.add(
+                                        TripDetailsDestination(
+                                            tripId = tripId
+                                        )
+                                    )
+                                },
                                 modifier = Modifier.padding(innerPadding)
                             )
                         }
@@ -139,6 +172,9 @@ fun MainScreen(
                                 onRetryClick = {
                                     motorcyclesViewModel.loadMotorcycles()
                                 },
+                                onRetryStatisticsClick = {
+                                    motorcyclesViewModel.retrySelectedStatistics()
+                                },
                                 onMotorcycleSelected = { motorcycleId ->
                                     motorcyclesViewModel.selectMotorcycle(
                                         motorcycleId
@@ -153,10 +189,49 @@ fun MainScreen(
                     MainDestination.PROFILE ->
                         NavEntry(destination) {
                             ProfileScreen(
+                                isLoggingOut = isLoggingOut,
                                 onLogoutClick = onLogoutClick,
                                 modifier = Modifier.padding(
                                     innerPadding
                                 )
+                            )
+                        }
+
+                    is TripDetailsDestination ->
+                        NavEntry(destination) {
+
+                            val tripDetailsViewModel: TripDetailsViewModel = viewModel(
+                                key = "trip-details-${destination.tripId}",
+                                factory = TripDetailsViewModelFactory(
+                                    tripId = destination.tripId,
+                                    tripRepository = tripRepository
+                                )
+                            )
+
+                            val tripDetailsUiState by tripDetailsViewModel
+                                .uiState
+                                .collectAsStateWithLifecycle()
+
+                            TripDetailsScreen(
+                                uiState = tripDetailsUiState,
+                                onRetryClick = {
+                                    tripDetailsViewModel.loadTrip()
+                                },
+                                onBackClick = {
+                                    tripsViewModel.refreshTrips()
+                                    backStack.removeLastOrNull()
+                                },
+                                onStartTripClick = {
+                                    tripDetailsViewModel.startTrip()
+                                },
+                                onCompleteTripClick = {
+                                    tripDetailsViewModel.completeTrip()
+                                },
+                                onConfirmTripDateUpdate =
+                                    tripDetailsViewModel::confirmStartTripWithDateUpdate,
+                                onDismissTripDateUpdate =
+                                    tripDetailsViewModel::dismissTripDateUpdateConfirmation,
+                                modifier = Modifier.padding(innerPadding)
                             )
                         }
 

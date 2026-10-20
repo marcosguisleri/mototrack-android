@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,14 +23,21 @@ class MotorcyclesViewModel(
     val uiState: StateFlow<MotorcyclesUiState> =
         _uiState.asStateFlow()
 
+    private var motorcyclesJob: Job? = null
+    private var statisticsJob: Job? = null
+
     init {
         loadMotorcycles()
     }
 
     fun loadMotorcycles() {
+        val previouslySelectedId =
+            (_uiState.value as? MotorcyclesUiState.Success)?.selectedMotorcycleId
+        motorcyclesJob?.cancel()
+        statisticsJob?.cancel()
         _uiState.value = MotorcyclesUiState.Loading
 
-        viewModelScope.launch {
+        motorcyclesJob = viewModelScope.launch {
             try {
                 val motorcycles =
                     motorcycleRepository.getMotorcycles()
@@ -42,7 +50,9 @@ class MotorcyclesViewModel(
                 }
 
                 val selectedMotorcycleId =
-                    motorcycles.first().id
+                    previouslySelectedId?.takeIf { selectedId ->
+                        motorcycles.any { it.id == selectedId }
+                    } ?: motorcycles.first().id
 
                 _uiState.value =
                     MotorcyclesUiState.Success(
@@ -102,15 +112,26 @@ class MotorcyclesViewModel(
                     MotorcycleStatisticsUiState.Loading
             )
 
+        statisticsJob?.cancel()
         loadMotorcycleStatistics(
             motorcycleId = motorcycleId
         )
     }
 
+    fun retrySelectedStatistics() {
+        val currentState = _uiState.value as? MotorcyclesUiState.Success
+            ?: return
+        _uiState.value = currentState.copy(
+            statisticsUiState = MotorcycleStatisticsUiState.Loading
+        )
+        statisticsJob?.cancel()
+        loadMotorcycleStatistics(currentState.selectedMotorcycleId)
+    }
+
     private fun loadMotorcycleStatistics(
         motorcycleId: Long
     ) {
-        viewModelScope.launch {
+        statisticsJob = viewModelScope.launch {
             try {
                 val statistics =
                     motorcycleRepository.getMotorcycleStatistics(
