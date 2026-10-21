@@ -24,6 +24,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import br.dev.guisleri.mototrack.data.local.DataStoreMotorcyclePreferences
 import br.dev.guisleri.mototrack.data.local.TokenStorage
 import br.dev.guisleri.mototrack.data.network.HomeApiService
 import br.dev.guisleri.mototrack.data.network.RetrofitClient
@@ -203,6 +204,10 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
         )
     }
 
+    val motorcyclePreferences = remember {
+        DataStoreMotorcyclePreferences(context.applicationContext)
+    }
+
     val tripApiService = remember(authenticatedRetrofit) {
         authenticatedRetrofit.create(TripApiService::class.java)
     }
@@ -335,7 +340,8 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
 
                         val motorcyclesViewModel: MotorcyclesViewModel = viewModel(
                             factory = MotorcyclesViewModelFactory(
-                                motorcycleRepository = motorcycleRepository
+                                motorcycleRepository = motorcycleRepository,
+                                motorcyclePreferences = motorcyclePreferences
                             )
                         )
 
@@ -350,6 +356,8 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             motorcyclesViewModel = motorcyclesViewModel,
                             tripsViewModel = tripsViewModel,
                             tripRepository = tripRepository,
+                            motorcycleRepository = motorcycleRepository,
+                            motorcyclePreferences = motorcyclePreferences,
                             isLoggingOut = isLoggingOut,
                             onLogoutClick = {
                                 if (!isLoggingOut) {
