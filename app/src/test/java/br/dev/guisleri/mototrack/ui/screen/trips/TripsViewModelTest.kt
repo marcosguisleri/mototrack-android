@@ -102,6 +102,16 @@ class TripsViewModelTest {
         override suspend fun getTripById(tripId: Long): TripResponseDTO =
             throw AssertionError("Unexpected detail request")
 
+        override suspend fun scheduleTrip(
+            request: br.dev.guisleri.mototrack.data.model.trip.CreateTripRequestDTO
+        ): TripResponseDTO =
+            throw AssertionError("Unexpected trip creation")
+
+        override suspend fun registerCompletedTrip(
+            request: br.dev.guisleri.mototrack.data.model.trip.CreateTripRequestDTO
+        ): TripResponseDTO =
+            throw AssertionError("Unexpected completed trip registration")
+
         override suspend fun updateTripStatus(
             tripId: Long,
             request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripStatusRequestDTO

@@ -62,8 +62,14 @@ class TripsViewModel(
 
     fun refreshTrips() {
         if (tripsJob?.isActive == true) return
+
+        // Nothing to keep on screen yet (e.g. empty list after creating the
+        // first trip), so reload from scratch instead of refreshing in place.
         val previousSuccess = _uiState.value as? TripsUiState.Success
-            ?: return
+            ?: run {
+                loadTrips()
+                return
+            }
 
         _isRefreshing.value = true
         tripsJob = viewModelScope.launch {

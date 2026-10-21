@@ -4,6 +4,7 @@ package br.dev.guisleri.mototrack.ui.screen.trips.details
 
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleOwnerDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO
+import br.dev.guisleri.mototrack.data.model.trip.CreateTripRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.data.model.trip.UpdateTripStatusRequestDTO
 import br.dev.guisleri.mototrack.data.remote.trip.TripApiService
@@ -81,6 +82,16 @@ class TripDetailsViewModelTest {
             getTripCalls++
             return trip(status)
         }
+
+        override suspend fun scheduleTrip(
+            request: CreateTripRequestDTO
+        ): TripResponseDTO =
+            throw AssertionError("Unexpected trip creation")
+
+        override suspend fun registerCompletedTrip(
+            request: CreateTripRequestDTO
+        ): TripResponseDTO =
+            throw AssertionError("Unexpected completed trip registration")
 
         override suspend fun updateTripStatus(
             tripId: Long,
