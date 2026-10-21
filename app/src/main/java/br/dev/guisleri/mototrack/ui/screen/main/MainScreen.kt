@@ -36,6 +36,7 @@ import br.dev.guisleri.mototrack.ui.navigation.MotoTrackBottomBar
 import br.dev.guisleri.mototrack.ui.navigation.TripCreateDestination
 import br.dev.guisleri.mototrack.ui.navigation.TripDetailsDestination
 import br.dev.guisleri.mototrack.ui.theme.WarmCanvas
+import br.dev.guisleri.mototrack.ui.screen.home.HomeHighlightState
 import br.dev.guisleri.mototrack.ui.screen.home.HomeScreen
 import br.dev.guisleri.mototrack.ui.screen.home.HomeUiState
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModel
@@ -187,13 +188,25 @@ fun MainScreen(
     val showBottomBar =
         backStack.lastOrNull() is MainDestination
 
+    // A trip in progress puts a live dot on the trips tab.
+    val liveDestinations by remember {
+        derivedStateOf {
+            val inProgress =
+                (homeUiState as? HomeUiState.Success)?.highlight is HomeHighlightState.InProgress
+
+            if (inProgress) setOf(MainDestination.TRIPS) else emptySet()
+        }
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        containerColor = WarmCanvas,
         bottomBar = {
             if (showBottomBar) {
                 MotoTrackBottomBar(
                     currentDestination = currentDestination,
-                    onDestinationSelected = navigateTo
+                    onDestinationSelected = navigateTo,
+                    liveDestinations = liveDestinations
                 )
             }
         }
