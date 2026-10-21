@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.notification.canPostNotifications
+import br.dev.guisleri.mototrack.ui.components.BrandMark
 import br.dev.guisleri.mototrack.ui.components.RideOutlinedButton
 import br.dev.guisleri.mototrack.ui.components.ShimmerBlock
 import br.dev.guisleri.mototrack.ui.components.WarmDialog
@@ -137,6 +138,8 @@ fun ProfileScreen(
             .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
+        BrandMark(modifier = Modifier.padding(bottom = 4.dp))
+
         Text(
             text = "Perfil",
             style = MaterialTheme.typography.headlineLarge,

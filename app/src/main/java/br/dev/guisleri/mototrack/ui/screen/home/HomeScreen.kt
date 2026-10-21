@@ -64,6 +64,7 @@ import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.data.model.home.HomeResponseDTO
 import br.dev.guisleri.mototrack.data.model.home.NextTripDTO
 import br.dev.guisleri.mototrack.data.model.home.TripSummaryDTO
+import br.dev.guisleri.mototrack.ui.components.BrandMark
 import br.dev.guisleri.mototrack.ui.components.GarageIllustration
 import br.dev.guisleri.mototrack.ui.components.HeroPill
 import br.dev.guisleri.mototrack.ui.components.PulsingDot
@@ -342,19 +343,7 @@ private fun HomeHeader(
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text(
-            text = buildAnnotatedString {
-                withStyle(SpanStyle(color = WarmInk)) {
-                    append("MOTO")
-                }
-                withStyle(SpanStyle(color = WarmEmber)) {
-                    append("TRACK")
-                }
-            },
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 2.sp
-        )
+        BrandMark()
 
         Spacer(modifier = Modifier.height(14.dp))
 

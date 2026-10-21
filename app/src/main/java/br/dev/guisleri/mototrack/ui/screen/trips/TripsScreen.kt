@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.ui.components.HeroPill
+import br.dev.guisleri.mototrack.ui.components.BrandMark
 import br.dev.guisleri.mototrack.ui.components.NoMotorcycleHero
 import br.dev.guisleri.mototrack.ui.components.PlanTripHero
 import br.dev.guisleri.mototrack.ui.components.PulsingDot
@@ -421,6 +422,8 @@ private fun TripsHeader(
         Column(
             modifier = Modifier.weight(1f)
         ) {
+            BrandMark(modifier = Modifier.padding(bottom = 10.dp))
+
             Text(
                 text = "Viagens",
                 style = MaterialTheme.typography.headlineLarge,
@@ -937,6 +940,8 @@ private fun TripsEmpty(
                 vertical = 20.dp
             )
     ) {
+        BrandMark(modifier = Modifier.padding(bottom = 10.dp))
+
         Text(
             text = "Viagens",
             style = MaterialTheme.typography.headlineLarge,
@@ -1086,6 +1091,8 @@ private fun TripsLoading(
             ),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        BrandMark()
+
         Text(
             text = "Viagens",
             style = MaterialTheme.typography.headlineLarge,

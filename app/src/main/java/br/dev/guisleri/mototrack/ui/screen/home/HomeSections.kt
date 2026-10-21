@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.motorcycleType
+import br.dev.guisleri.mototrack.ui.components.BrandMark
 import br.dev.guisleri.mototrack.ui.components.MotorcycleHeroImage
 import br.dev.guisleri.mototrack.ui.components.formatNumber
 import br.dev.guisleri.mototrack.ui.components.motorcycleColor
@@ -73,19 +74,7 @@ private val MonthNames = listOf(
 
 @Composable
 internal fun HomeWordmark() {
-    Text(
-        text = buildAnnotatedString {
-            withStyle(SpanStyle(color = WarmInk)) {
-                append("MOTO")
-            }
-            withStyle(SpanStyle(color = WarmEmber)) {
-                append("TRACK")
-            }
-        },
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.ExtraBold,
-        letterSpacing = 2.sp
-    )
+    BrandMark()
 }
 
 /** "Boa noite, Marcos": the name is highlighted, and the greeting works without it. */

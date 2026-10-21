@@ -1,5 +1,6 @@
 package br.dev.guisleri.mototrack.ui.screen.motorcycles
 
+import br.dev.guisleri.mototrack.ui.components.BrandMark
 import br.dev.guisleri.mototrack.ui.components.WarmDialog
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
@@ -437,38 +438,6 @@ private fun MotorcyclesTopBar(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun BrandMark() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Image(
-            painter = painterResource(R.drawable.ic_mototrack_symbol),
-            contentDescription = null,
-            modifier = Modifier.size(
-                width = 39.dp,
-                height = 24.dp
-            )
-        )
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Text(
-            text = buildAnnotatedString {
-                withStyle(SpanStyle(color = WarmInk)) {
-                    append("Moto")
-                }
-                withStyle(SpanStyle(color = WarmEmber)) {
-                    append("Track")
-                }
-            },
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.ExtraBold,
-            fontStyle = FontStyle.Italic
-        )
     }
 }
 

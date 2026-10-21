@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.dev.guisleri.mototrack.data.model.motorcycle.motorcycleType
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
+import br.dev.guisleri.mototrack.ui.components.BrandMark
 import br.dev.guisleri.mototrack.ui.components.CircleActionButton
 import br.dev.guisleri.mototrack.ui.components.HeroPill
 import br.dev.guisleri.mototrack.ui.components.PulsingDot
@@ -1129,19 +1130,7 @@ private fun BrandFooter() {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = buildAnnotatedString {
-                withStyle(SpanStyle(color = WarmInk)) {
-                    append("MOTO")
-                }
-                withStyle(SpanStyle(color = WarmEmber)) {
-                    append("TRACK")
-                }
-            },
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 2.sp
-        )
+        BrandMark()
 
         Spacer(modifier = Modifier.height(4.dp))
 
