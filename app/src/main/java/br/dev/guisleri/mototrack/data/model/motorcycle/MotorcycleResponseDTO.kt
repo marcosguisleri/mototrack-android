@@ -10,8 +10,13 @@ data class MotorcycleResponseDTO(
     val color: String,
     val year: Int,
     val engineCapacity: Int,
+    // Null for bikes registered before the type existed.
+    val type: String? = null,
     val owner: MotorcycleOwnerDTO
 )
+
+val MotorcycleResponseDTO.motorcycleType: MotorcycleType?
+    get() = MotorcycleType.fromApi(type)
 
 @Serializable
 data class MotorcycleOwnerDTO(
