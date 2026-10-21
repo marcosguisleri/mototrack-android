@@ -55,6 +55,7 @@ import br.dev.guisleri.mototrack.ui.screen.trips.create.TripCreateScreen
 import br.dev.guisleri.mototrack.ui.screen.trips.create.TripCreateViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.create.TripCreateViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsScreen
+import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsUiState
 import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsViewModelFactory
 
@@ -136,6 +137,15 @@ fun MainScreen(
                 TripsUiState.Empty -> emptyList()
                 else -> null
             }
+        }
+    }
+
+    // How many trips each motorcycle has, when the trips are known.
+    val tripCountsByMotorcycle by remember {
+        derivedStateOf {
+            homeTrips
+                ?.groupingBy { it.motorcycle.id }
+                ?.eachCount()
         }
     }
 
@@ -466,6 +476,12 @@ fun MainScreen(
                                 onAddMotorcycleClick = {
                                     backStack.add(MotorcycleCreateDestination)
                                 },
+                                onDeleteMotorcycleClick = { motorcycleId ->
+                                    motorcyclesViewModel.deleteMotorcycle(motorcycleId)
+                                },
+                                onDismissDeleteIssue =
+                                    motorcyclesViewModel::dismissDeleteIssue,
+                                tripCounts = tripCountsByMotorcycle,
                                 modifier = Modifier
                                     .background(WarmCanvas)
                                     .padding(innerPadding)
@@ -498,6 +514,19 @@ fun MainScreen(
                                 .uiState
                                 .collectAsStateWithLifecycle()
 
+                            val tripWasDeleted =
+                                (tripDetailsUiState as? TripDetailsUiState.Success)
+                                    ?.isDeleted == true
+
+                            LaunchedEffect(tripWasDeleted) {
+                                if (tripWasDeleted) {
+                                    tripsViewModel.refreshTrips()
+                                    homeViewModel.loadHome()
+                                    motorcyclesViewModel.loadMotorcycles()
+                                    backStack.removeLastOrNull()
+                                }
+                            }
+
                             TripDetailsScreen(
                                 uiState = tripDetailsUiState,
                                 onRetryClick = {
@@ -518,6 +547,7 @@ fun MainScreen(
                                     tripDetailsViewModel::confirmTripDateUpdate,
                                 onDismissTripDateUpdate =
                                     tripDetailsViewModel::dismissTripDateUpdateConfirmation,
+                                onDeleteTripClick = tripDetailsViewModel::deleteTrip,
                                 modifier = Modifier
                                     .background(WarmCanvas)
                                     .padding(innerPadding)

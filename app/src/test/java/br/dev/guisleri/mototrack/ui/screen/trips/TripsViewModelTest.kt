@@ -112,6 +112,10 @@ class TripsViewModelTest {
         ): TripResponseDTO =
             throw AssertionError("Unexpected completed trip registration")
 
+        override suspend fun deleteTrip(tripId: Long) {
+            throw AssertionError("Unexpected trip deletion")
+        }
+
         override suspend fun updateTripStatus(
             tripId: Long,
             request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripStatusRequestDTO

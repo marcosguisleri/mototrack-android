@@ -9,6 +9,8 @@ sealed interface TripDetailsUiState {
     data class Success(
         val trip: TripResponseDTO,
         val isUpdatingStatus: Boolean = false,
+        val isDeleting: Boolean = false,
+        val isDeleted: Boolean = false,
         val actionErrorMessage: String? = null,
         val requiresTripDateUpdateConfirmation: Boolean = false
     ) : TripDetailsUiState

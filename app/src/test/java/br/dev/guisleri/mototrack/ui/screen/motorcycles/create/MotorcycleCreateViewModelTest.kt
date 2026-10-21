@@ -218,6 +218,10 @@ class MotorcycleCreateViewModelTest {
             )
         }
 
+        override suspend fun deleteMotorcycle(motorcycleId: Long) {
+            throw AssertionError("Unexpected motorcycle deletion")
+        }
+
         override suspend fun getMotorcycleStatistics(
             motorcycleId: Long
         ): MotorcycleStatisticsResponseDTO =

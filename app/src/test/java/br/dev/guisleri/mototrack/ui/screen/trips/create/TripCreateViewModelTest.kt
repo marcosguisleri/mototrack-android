@@ -388,6 +388,10 @@ class TripCreateViewModelTest {
             return trip(request, "COMPLETED")
         }
 
+        override suspend fun deleteTrip(tripId: Long) {
+            throw AssertionError("Unexpected trip deletion")
+        }
+
         override suspend fun updateTripStatus(
             tripId: Long,
             request: UpdateTripStatusRequestDTO
@@ -419,6 +423,10 @@ class TripCreateViewModelTest {
             request: br.dev.guisleri.mototrack.data.model.motorcycle.CreateMotorcycleRequestDTO
         ): MotorcycleResponseDTO =
             throw AssertionError("Unexpected motorcycle creation")
+
+        override suspend fun deleteMotorcycle(motorcycleId: Long) {
+            throw AssertionError("Unexpected motorcycle deletion")
+        }
 
         override suspend fun getMotorcycleStatistics(
             motorcycleId: Long

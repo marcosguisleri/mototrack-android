@@ -31,6 +31,12 @@ class TripRepository (
         return tripApiService.registerCompletedTrip(request)
     }
 
+    suspend fun deleteTrip(
+        tripId: Long
+    ) {
+        tripApiService.deleteTrip(tripId)
+    }
+
     suspend fun updateTripStatus(
         tripId: Long,
         status: String,

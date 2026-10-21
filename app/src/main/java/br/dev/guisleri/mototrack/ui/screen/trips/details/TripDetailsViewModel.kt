@@ -95,6 +95,67 @@ class TripDetailsViewModel(
         )
     }
 
+    fun deleteTrip() {
+        val currentState =
+            _uiState.value as? TripDetailsUiState.Success
+                ?: return
+
+        if (currentState.isUpdatingStatus || currentState.isDeleting) {
+            return
+        }
+
+        _uiState.value =
+            currentState.copy(
+                isDeleting = true,
+                actionErrorMessage = null
+            )
+
+        viewModelScope.launch {
+            try {
+                tripRepository.deleteTrip(tripId)
+
+                _uiState.value =
+                    currentSuccessState(currentState).copy(
+                        isDeleting = false,
+                        isDeleted = true
+                    )
+
+            } catch (exception: CancellationException) {
+                throw exception
+
+            } catch (exception: HttpException) {
+                showDeleteError(
+                    currentState,
+                    getApiErrorMessage(exception)
+                        ?: "Não foi possível excluir a viagem."
+                )
+
+            } catch (exception: IOException) {
+                showDeleteError(
+                    currentState,
+                    "Não foi possível comunicar com o servidor."
+                )
+
+            } catch (exception: Exception) {
+                showDeleteError(
+                    currentState,
+                    "Não foi possível excluir a viagem."
+                )
+            }
+        }
+    }
+
+    private fun showDeleteError(
+        fallback: TripDetailsUiState.Success,
+        message: String
+    ) {
+        _uiState.value =
+            currentSuccessState(fallback).copy(
+                isDeleting = false,
+                actionErrorMessage = message
+            )
+    }
+
     fun confirmTripDateUpdate() {
         val status = statusAwaitingDateUpdate ?: return
 
@@ -125,7 +186,7 @@ class TripDetailsViewModel(
             _uiState.value as? TripDetailsUiState.Success
                 ?: return
 
-        if (currentState.isUpdatingStatus) {
+        if (currentState.isUpdatingStatus || currentState.isDeleting) {
             return
         }
 

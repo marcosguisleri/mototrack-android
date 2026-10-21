@@ -4,6 +4,7 @@ import br.dev.guisleri.mototrack.data.model.trip.CreateTripRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.data.model.trip.UpdateTripStatusRequestDTO
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -28,6 +29,11 @@ interface TripApiService {
     suspend fun registerCompletedTrip(
         @Body request: CreateTripRequestDTO
     ): TripResponseDTO
+
+    @DELETE("trips/{id}")
+    suspend fun deleteTrip(
+        @Path("id") tripId: Long
+    )
 
     @PATCH("trips/{id}/status")
     suspend fun updateTripStatus(

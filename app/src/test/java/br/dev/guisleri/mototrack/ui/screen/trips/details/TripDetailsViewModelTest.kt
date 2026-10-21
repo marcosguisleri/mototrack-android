@@ -26,6 +26,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.IOException
 
 class TripDetailsViewModelTest {
 
@@ -157,6 +158,75 @@ class TripDetailsViewModelTest {
         assertEquals("Não foi possível alterar o status da viagem.", state.actionErrorMessage)
     }
 
+    @Test
+    fun deletingTheTripCallsTheApiAndMarksItDeleted() = runTest(dispatcher) {
+        val api = FakeTripApi()
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.deleteTrip()
+
+        val state = viewModel.uiState.value as TripDetailsUiState.Success
+        assertEquals(listOf(1L), api.deletedTripIds)
+        assertTrue(state.isDeleted)
+        assertFalse(state.isDeleting)
+    }
+
+    @Test
+    fun deleteIsIgnoredWhileAnotherDeleteIsPending() = runTest(dispatcher) {
+        val response = CompletableDeferred<Unit>()
+        val api = FakeTripApi().apply { onDelete = { response.await() } }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.deleteTrip()
+        viewModel.deleteTrip()
+
+        assertTrue((viewModel.uiState.value as TripDetailsUiState.Success).isDeleting)
+        response.complete(Unit)
+
+        assertEquals(listOf(1L), api.deletedTripIds)
+    }
+
+    @Test
+    fun failedDeleteKeepsTheTripAndShowsTheError() = runTest(dispatcher) {
+        val api = FakeTripApi().apply { onDelete = { throw IOException("offline") } }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.deleteTrip()
+
+        val state = viewModel.uiState.value as TripDetailsUiState.Success
+        assertFalse(state.isDeleted)
+        assertFalse(state.isDeleting)
+        assertEquals("Não foi possível comunicar com o servidor.", state.actionErrorMessage)
+    }
+
+    @Test
+    fun serverRefusalOnDeleteShowsAGenericError() = runTest(dispatcher) {
+        val api = FakeTripApi().apply {
+            onDelete = { throw HttpException(Response.error<Any>(404, "".toResponseBody())) }
+        }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.deleteTrip()
+
+        assertEquals(
+            "Não foi possível excluir a viagem.",
+            (viewModel.uiState.value as TripDetailsUiState.Success).actionErrorMessage
+        )
+    }
+
+    @Test
+    fun statusActionsAreIgnoredWhileDeleting() = runTest(dispatcher) {
+        val response = CompletableDeferred<Unit>()
+        val api = FakeTripApi().apply { onDelete = { response.await() } }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.deleteTrip()
+        viewModel.startTrip()
+
+        assertTrue(api.statusRequests.isEmpty())
+        response.complete(Unit)
+    }
+
     private fun dateConflict() =
         HttpException(Response.error<Any>(409, "".toResponseBody()))
 
@@ -183,6 +253,14 @@ class TripDetailsViewModelTest {
             request: CreateTripRequestDTO
         ): TripResponseDTO =
             throw AssertionError("Unexpected completed trip registration")
+
+        val deletedTripIds = mutableListOf<Long>()
+        var onDelete: suspend () -> Unit = {}
+
+        override suspend fun deleteTrip(tripId: Long) {
+            onDelete()
+            deletedTripIds += tripId
+        }
 
         override suspend fun updateTripStatus(
             tripId: Long,

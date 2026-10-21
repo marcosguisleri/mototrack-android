@@ -15,6 +15,11 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import okhttp3.ResponseBody.Companion.toResponseBody
+import retrofit2.HttpException
+import retrofit2.Response
+import java.io.IOException
+import org.junit.Assert.assertFalse
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -100,11 +105,95 @@ class MotorcyclesViewModelTest {
 
     private fun viewModel(
         motorcycles: List<MotorcycleResponseDTO>,
-        preferences: FakePreferences = FakePreferences()
+        preferences: FakePreferences = FakePreferences(),
+        api: FakeApi = FakeApi(motorcycles)
     ) = MotorcyclesViewModel(
-        motorcycleRepository = MotorcycleRepository(FakeApi(motorcycles)),
+        motorcycleRepository = MotorcycleRepository(api),
         motorcyclePreferences = preferences
     )
+
+    @Test
+    fun deletingAMotorcycleReloadsTheGarage() = runTest(dispatcher) {
+        val motorcycles = listOf(motorcycle(1), motorcycle(2))
+        val api = FakeApi(motorcycles)
+        val viewModel = viewModel(motorcycles, api = api)
+
+        viewModel.deleteMotorcycle(2)
+
+        val state = viewModel.uiState.value as MotorcyclesUiState.Success
+        assertEquals(listOf(2L), api.deletedIds)
+        assertEquals(listOf(1L), state.motorcycles.map { it.id })
+        assertFalse(state.isDeleting)
+    }
+
+    @Test
+    fun deletingTheSelectedMotorcycleMovesToAnother() = runTest(dispatcher) {
+        val motorcycles = listOf(motorcycle(1), motorcycle(2))
+        val viewModel = viewModel(motorcycles, api = FakeApi(motorcycles))
+        viewModel.selectMotorcycle(2)
+
+        viewModel.deleteMotorcycle(2)
+
+        assertEquals(
+            1L,
+            (viewModel.uiState.value as MotorcyclesUiState.Success).selectedMotorcycleId
+        )
+    }
+
+    @Test
+    fun deletingTheLastMotorcycleLeavesTheGarageEmpty() = runTest(dispatcher) {
+        val motorcycles = listOf(motorcycle(1))
+        val viewModel = viewModel(motorcycles, api = FakeApi(motorcycles))
+
+        viewModel.deleteMotorcycle(1)
+
+        assertEquals(MotorcyclesUiState.Empty, viewModel.uiState.value)
+    }
+
+    @Test
+    fun serverConflictMeansTheMotorcycleStillHasTrips() = runTest(dispatcher) {
+        val motorcycles = listOf(motorcycle(1), motorcycle(2))
+        val api = FakeApi(motorcycles).apply {
+            deleteFailure = HttpException(Response.error<Any>(409, "".toResponseBody()))
+        }
+        val viewModel = viewModel(motorcycles, api = api)
+
+        viewModel.deleteMotorcycle(2)
+
+        val state = viewModel.uiState.value as MotorcyclesUiState.Success
+        assertEquals(MotorcycleDeleteIssue.HasTrips, state.deleteIssue)
+        assertEquals(2, state.motorcycles.size)
+        assertFalse(state.isDeleting)
+    }
+
+    @Test
+    fun otherDeleteFailuresAreReportedAsFailures() = runTest(dispatcher) {
+        val motorcycles = listOf(motorcycle(1))
+        val api = FakeApi(motorcycles).apply { deleteFailure = IOException("offline") }
+        val viewModel = viewModel(motorcycles, api = api)
+
+        viewModel.deleteMotorcycle(1)
+
+        val issue = (viewModel.uiState.value as MotorcyclesUiState.Success).deleteIssue
+        assertEquals(
+            MotorcycleDeleteIssue.Failed("Não foi possível comunicar com o servidor."),
+            issue
+        )
+    }
+
+    @Test
+    fun dismissingTheIssueClearsIt() = runTest(dispatcher) {
+        val motorcycles = listOf(motorcycle(1))
+        val api = FakeApi(motorcycles).apply {
+            deleteFailure = HttpException(Response.error<Any>(409, "".toResponseBody()))
+        }
+        val viewModel = viewModel(motorcycles, api = api)
+        viewModel.deleteMotorcycle(1)
+
+        viewModel.dismissDeleteIssue()
+
+        assertNull((viewModel.uiState.value as MotorcyclesUiState.Success).deleteIssue)
+    }
 
     private class FakePreferences(defaultId: Long? = null) : MotorcyclePreferences {
         val state = MutableStateFlow(defaultId)
@@ -117,10 +206,20 @@ class MotorcyclesViewModelTest {
     }
 
     private class FakeApi(
-        private val motorcycles: List<MotorcycleResponseDTO>
+        motorcycles: List<MotorcycleResponseDTO>
     ) : MotorcycleApiService {
 
-        override suspend fun getMotorcycles() = motorcycles
+        private val motorcycles = motorcycles.toMutableList()
+        val deletedIds = mutableListOf<Long>()
+        var deleteFailure: Exception? = null
+
+        override suspend fun getMotorcycles() = motorcycles.toList()
+
+        override suspend fun deleteMotorcycle(motorcycleId: Long) {
+            deleteFailure?.let { throw it }
+            deletedIds += motorcycleId
+            motorcycles.removeAll { it.id == motorcycleId }
+        }
 
         override suspend fun createMotorcycle(
             request: br.dev.guisleri.mototrack.data.model.motorcycle.CreateMotorcycleRequestDTO

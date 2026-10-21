@@ -1,5 +1,10 @@
 package br.dev.guisleri.mototrack.ui.screen.trips.details
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.material.icons.outlined.DeleteOutline
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.BorderStroke
@@ -111,6 +116,7 @@ fun TripDetailsScreen(
     onCompleteTripClick: () -> Unit,
     onConfirmTripDateUpdate: () -> Unit,
     onDismissTripDateUpdate: () -> Unit,
+    onDeleteTripClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -132,6 +138,10 @@ fun TripDetailsScreen(
         }
 
         is TripDetailsUiState.Success -> {
+            var showDeleteConfirmation by remember {
+                mutableStateOf(false)
+            }
+
             TripDetailsContent(
                 trip = uiState.trip,
                 isUpdatingStatus = uiState.isUpdatingStatus,
@@ -139,8 +149,19 @@ fun TripDetailsScreen(
                 onBackClick = onBackClick,
                 onStartTripClick = onStartTripClick,
                 onCompleteTripClick = onCompleteTripClick,
+                onDeleteClick = { showDeleteConfirmation = true },
                 modifier = modifier
             )
+
+            if (showDeleteConfirmation) {
+                TripDeleteConfirmationDialog(
+                    trip = uiState.trip,
+                    isDeleting = uiState.isDeleting,
+                    errorMessage = uiState.actionErrorMessage,
+                    onConfirm = onDeleteTripClick,
+                    onDismiss = { showDeleteConfirmation = false }
+                )
+            }
 
             if (uiState.requiresTripDateUpdateConfirmation) {
                 TripDateUpdateConfirmationDialog(
@@ -150,6 +171,67 @@ fun TripDetailsScreen(
                     onDismiss = onDismissTripDateUpdate
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun TripDeleteConfirmationDialog(
+    trip: TripResponseDTO,
+    isDeleting: Boolean,
+    errorMessage: String?,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    WarmDialog(
+        icon = Icons.Outlined.DeleteOutline,
+        title = "Excluir esta viagem?",
+        message = when (trip.status) {
+            "IN_PROGRESS" ->
+                "Esta viagem está em andamento. Ela será removida junto com tudo " +
+                        "o que foi registrado. Isso não pode ser desfeito."
+
+            "COMPLETED" ->
+                "Esta viagem concluída sai do seu histórico e das suas " +
+                        "estatísticas. Isso não pode ser desfeito."
+
+            else ->
+                "Esta viagem planejada será removida. Isso não pode ser desfeito."
+        },
+        confirmText = "Excluir viagem",
+        onConfirm = onConfirm,
+        onDismissRequest = onDismiss,
+        dismissText = "Cancelar",
+        destructive = true,
+        isLoading = isDeleting
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "${trip.origin} → ${trip.destination}",
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(WarmHairline)
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = 8.dp
+                ),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = WarmInkSoft,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = errorMessage,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
@@ -233,6 +315,7 @@ private fun TripDetailsContent(
     onBackClick: () -> Unit,
     onStartTripClick: () -> Unit,
     onCompleteTripClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -252,7 +335,8 @@ private fun TripDetailsContent(
             onBackClick = onBackClick,
             onShareClick = {
                 shareTrip(context, trip)
-            }
+            },
+            onDeleteClick = onDeleteClick
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -293,7 +377,8 @@ private fun TripDetailsContent(
 @Composable
 private fun TripDetailsTopBar(
     onBackClick: () -> Unit,
-    onShareClick: (() -> Unit)? = null
+    onShareClick: (() -> Unit)? = null,
+    onDeleteClick: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -312,6 +397,16 @@ private fun TripDetailsTopBar(
                 icon = Icons.Outlined.Share,
                 contentDescription = "Compartilhar viagem",
                 onClick = onShareClick
+            )
+        }
+
+        if (onDeleteClick != null) {
+            Spacer(modifier = Modifier.width(10.dp))
+
+            CircleActionButton(
+                icon = Icons.Outlined.DeleteOutline,
+                contentDescription = "Excluir viagem",
+                onClick = onDeleteClick
             )
         }
     }

@@ -1,5 +1,11 @@
 package br.dev.guisleri.mototrack.ui.screen.motorcycles
 
+import br.dev.guisleri.mototrack.ui.components.WarmDialog
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.Brush
@@ -130,6 +136,9 @@ fun MotorcyclesScreen(
     onHistoryClick: (Long) -> Unit,
     onTripClick: (Long) -> Unit,
     onAddMotorcycleClick: () -> Unit,
+    onDeleteMotorcycleClick: (Long) -> Unit,
+    onDismissDeleteIssue: () -> Unit,
+    tripCounts: Map<Long, Int>?,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -165,6 +174,9 @@ fun MotorcyclesScreen(
                 onHistoryClick = onHistoryClick,
                 onTripClick = onTripClick,
                 onAddMotorcycleClick = onAddMotorcycleClick,
+                onDeleteMotorcycleClick = onDeleteMotorcycleClick,
+                onDismissDeleteIssue = onDismissDeleteIssue,
+                tripCounts = tripCounts,
                 modifier = modifier
             )
         }
@@ -181,8 +193,14 @@ private fun MotorcyclesContent(
     onHistoryClick: (Long) -> Unit,
     onTripClick: (Long) -> Unit,
     onAddMotorcycleClick: () -> Unit,
+    onDeleteMotorcycleClick: (Long) -> Unit,
+    onDismissDeleteIssue: () -> Unit,
+    tripCounts: Map<Long, Int>?,
     modifier: Modifier = Modifier
 ) {
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showHasTrips by remember { mutableStateOf(false) }
+
     val selectedMotorcycle =
         uiState.motorcycles.first {
             it.id == uiState.selectedMotorcycleId
@@ -257,6 +275,108 @@ private fun MotorcyclesContent(
             onHistoryClick = {
                 onHistoryClick(selectedMotorcycle.id)
             }
+        )
+
+        DeleteMotorcycleButton(
+            onClick = {
+                // The server refuses motorcycles with trips, so say it before asking.
+                if ((tripCounts?.get(selectedMotorcycle.id) ?: 0) > 0) {
+                    showHasTrips = true
+                } else {
+                    showDeleteConfirmation = true
+                }
+            }
+        )
+    }
+
+    val motorcycleName = "${selectedMotorcycle.brand} ${selectedMotorcycle.model}"
+    val knownTrips = tripCounts?.get(selectedMotorcycle.id) ?: 0
+    val issue = uiState.deleteIssue
+
+    if (showHasTrips || issue == MotorcycleDeleteIssue.HasTrips) {
+        WarmDialog(
+            icon = Icons.Outlined.Route,
+            title = "Esta moto tem viagens",
+            message = if (knownTrips > 0) {
+                "A $motorcycleName tem ${formatTripCount(knownTrips.toLong())}. " +
+                        "Para excluir a moto, exclua antes as viagens dela."
+            } else {
+                "A $motorcycleName ainda tem viagens. " +
+                        "Para excluir a moto, exclua antes as viagens dela."
+            },
+            confirmText = "Ver viagens",
+            onConfirm = {
+                showHasTrips = false
+                showDeleteConfirmation = false
+                onDismissDeleteIssue()
+                onHistoryClick(selectedMotorcycle.id)
+            },
+            onDismissRequest = {
+                showHasTrips = false
+                showDeleteConfirmation = false
+                onDismissDeleteIssue()
+            },
+            dismissText = "Entendi"
+        )
+    } else if (showDeleteConfirmation) {
+        WarmDialog(
+            icon = Icons.Outlined.DeleteOutline,
+            title = "Excluir $motorcycleName?",
+            message = "A moto será removida da sua garagem. Isso não pode ser desfeito.",
+            confirmText = "Excluir moto",
+            onConfirm = { onDeleteMotorcycleClick(selectedMotorcycle.id) },
+            onDismissRequest = { showDeleteConfirmation = false },
+            dismissText = "Cancelar",
+            destructive = true,
+            isLoading = uiState.isDeleting
+        ) {
+            (issue as? MotorcycleDeleteIssue.Failed)?.let { failed ->
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = failed.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeleteMotorcycleButton(
+    onClick: () -> Unit
+) {
+    val error = MaterialTheme.colorScheme.error
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(50))
+            .clickable(
+                onClickLabel = "Excluir moto",
+                role = Role.Button,
+                onClick = onClick
+            )
+            .padding(vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.DeleteOutline,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = error
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Text(
+            text = "Excluir moto",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = error
         )
     }
 }

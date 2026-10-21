@@ -19,6 +19,12 @@ class MotorcycleRepository(
         return motorcycleApiService.createMotorcycle(request)
     }
 
+    suspend fun deleteMotorcycle(
+        motorcycleId: Long
+    ) {
+        motorcycleApiService.deleteMotorcycle(motorcycleId)
+    }
+
     suspend fun getMotorcycleStatistics(
         motorcycleId: Long
     ): MotorcycleStatisticsResponseDTO {

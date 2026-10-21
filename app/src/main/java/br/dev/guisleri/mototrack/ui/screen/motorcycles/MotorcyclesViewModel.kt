@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import java.io.IOException
 
 class MotorcyclesViewModel(
@@ -128,6 +129,73 @@ class MotorcyclesViewModel(
         statisticsJob?.cancel()
         loadMotorcycleStatistics(
             motorcycleId = motorcycleId
+        )
+    }
+
+    fun deleteMotorcycle(
+        motorcycleId: Long
+    ) {
+        val currentState = _uiState.value as? MotorcyclesUiState.Success
+            ?: return
+
+        if (currentState.isDeleting) return
+
+        _uiState.value = currentState.copy(
+            isDeleting = true,
+            deleteIssue = null
+        )
+
+        viewModelScope.launch {
+            try {
+                motorcycleRepository.deleteMotorcycle(motorcycleId)
+
+                loadMotorcycles()
+
+            } catch (exception: CancellationException) {
+                throw exception
+
+            } catch (exception: HttpException) {
+                showDeleteIssue(
+                    if (exception.code() == 409) {
+                        MotorcycleDeleteIssue.HasTrips
+                    } else {
+                        MotorcycleDeleteIssue.Failed(
+                            "Não foi possível excluir a moto."
+                        )
+                    }
+                )
+
+            } catch (exception: IOException) {
+                showDeleteIssue(
+                    MotorcycleDeleteIssue.Failed(
+                        "Não foi possível comunicar com o servidor."
+                    )
+                )
+
+            } catch (exception: Exception) {
+                showDeleteIssue(
+                    MotorcycleDeleteIssue.Failed(
+                        "Não foi possível excluir a moto."
+                    )
+                )
+            }
+        }
+    }
+
+    fun dismissDeleteIssue() {
+        val currentState = _uiState.value as? MotorcyclesUiState.Success
+            ?: return
+
+        _uiState.value = currentState.copy(deleteIssue = null)
+    }
+
+    private fun showDeleteIssue(issue: MotorcycleDeleteIssue) {
+        val currentState = _uiState.value as? MotorcyclesUiState.Success
+            ?: return
+
+        _uiState.value = currentState.copy(
+            isDeleting = false,
+            deleteIssue = issue
         )
     }
 
