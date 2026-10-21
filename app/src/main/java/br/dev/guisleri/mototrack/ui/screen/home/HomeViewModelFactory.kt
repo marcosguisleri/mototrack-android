@@ -3,9 +3,11 @@ package br.dev.guisleri.mototrack.ui.screen.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import br.dev.guisleri.mototrack.data.repository.HomeRepository
+import br.dev.guisleri.mototrack.data.repository.UserRepository
 
 class HomeViewModelFactory(
-    private val homeRepository: HomeRepository
+    private val homeRepository: HomeRepository,
+    private val userRepository: UserRepository
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -19,7 +21,8 @@ class HomeViewModelFactory(
             )
         ) {
             return HomeViewModel(
-                homeRepository = homeRepository
+                homeRepository = homeRepository,
+                userRepository = userRepository
             ) as T
         }
 

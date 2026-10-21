@@ -45,7 +45,9 @@ import br.dev.guisleri.mototrack.ui.screen.main.MainScreen
 import br.dev.guisleri.mototrack.data.remote.motorcycle.MotorcycleApiService
 import br.dev.guisleri.mototrack.data.remote.trip.TripApiService
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
+import br.dev.guisleri.mototrack.data.remote.user.UserApiService
 import br.dev.guisleri.mototrack.data.repository.TripRepository
+import br.dev.guisleri.mototrack.data.repository.UserRepository
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModel
@@ -183,6 +185,16 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
     val homeApiService = remember {
         authenticatedRetrofit.create(
             HomeApiService::class.java
+        )
+    }
+
+    val userApiService = remember(authenticatedRetrofit) {
+        authenticatedRetrofit.create(UserApiService::class.java)
+    }
+
+    val userRepository = remember(userApiService) {
+        UserRepository(
+            userApiService = userApiService
         )
     }
 
@@ -334,7 +346,8 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
 
                         val homeViewModel: HomeViewModel = viewModel(
                             factory = HomeViewModelFactory(
-                                homeRepository = homeRepository
+                                homeRepository = homeRepository,
+                                userRepository = userRepository
                             )
                         )
 

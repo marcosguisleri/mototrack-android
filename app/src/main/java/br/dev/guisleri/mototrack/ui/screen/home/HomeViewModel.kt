@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.dev.guisleri.mototrack.data.model.home.HomeResponseDTO
 import br.dev.guisleri.mototrack.data.repository.HomeRepository
+import br.dev.guisleri.mototrack.data.repository.UserRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,8 +15,12 @@ import retrofit2.HttpException
 import java.io.IOException
 
 class HomeViewModel(
-    private val homeRepository: HomeRepository
+    private val homeRepository: HomeRepository,
+    private val userRepository: UserRepository
 ) : ViewModel() {
+
+    // The name does not change while signed in, so it is fetched only once.
+    private var userName: String? = null
 
     private val _uiState =
         MutableStateFlow<HomeUiState>(
@@ -49,7 +54,8 @@ class HomeViewModel(
 
                 _uiState.value = HomeUiState.Success(
                     home = home,
-                    highlight = resolveHighlight(home)
+                    highlight = resolveHighlight(home),
+                    userName = userName ?: loadUserName()
                 )
             } catch (exception: CancellationException) {
                 throw exception
@@ -75,6 +81,16 @@ class HomeViewModel(
             }
         }
     }
+
+    /** The greeting works without a name, so any failure here is ignored. */
+    private suspend fun loadUserName(): String? =
+        try {
+            userRepository.getCurrentUser().name.also { userName = it }
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            null
+        }
 
     private fun showLoadError(
         previousSuccess: HomeUiState.Success?,
