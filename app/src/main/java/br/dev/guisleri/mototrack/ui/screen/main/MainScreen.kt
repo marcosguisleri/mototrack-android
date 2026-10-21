@@ -378,6 +378,9 @@ fun MainScreen(
                                 onAddMotorcycleClick = {
                                     backStack.add(MotorcycleCreateDestination)
                                 },
+                                onGoHomeClick = {
+                                    navigateTo(MainDestination.HOME)
+                                },
                                 modifier = Modifier
                                     .background(WarmCanvas)
                                     .padding(innerPadding)

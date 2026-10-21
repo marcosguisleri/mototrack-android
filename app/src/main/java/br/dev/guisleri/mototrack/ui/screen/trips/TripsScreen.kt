@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.ui.components.HeroPill
 import br.dev.guisleri.mototrack.ui.components.BrandMark
+import br.dev.guisleri.mototrack.ui.components.FirstTripIllustration
 import br.dev.guisleri.mototrack.ui.components.NoMotorcycleHero
 import br.dev.guisleri.mototrack.ui.components.PlanTripHero
 import br.dev.guisleri.mototrack.ui.components.PulsingDot
@@ -123,6 +124,7 @@ fun TripsScreen(
     onRegisterCompletedTripClick: () -> Unit,
     hasMotorcycles: Boolean,
     onAddMotorcycleClick: () -> Unit,
+    onGoHomeClick: () -> Unit,
     modifier: Modifier = Modifier,
     motorcycleFilterId: Long? = null,
     motorcycleFilterName: String? = null,
@@ -139,8 +141,7 @@ fun TripsScreen(
         TripsUiState.Empty -> {
             TripsEmpty(
                 hasMotorcycles = hasMotorcycles,
-                onCreateTripClick = onCreateTripClick,
-                onRegisterCompletedTripClick = onRegisterCompletedTripClick,
+                onGoHomeClick = onGoHomeClick,
                 onAddMotorcycleClick = onAddMotorcycleClick,
                 modifier = modifier
             )
@@ -926,15 +927,13 @@ private fun StatusPill(
 @Composable
 private fun TripsEmpty(
     hasMotorcycles: Boolean,
-    onCreateTripClick: () -> Unit,
-    onRegisterCompletedTripClick: () -> Unit,
+    onGoHomeClick: () -> Unit,
     onAddMotorcycleClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(
                 horizontal = 20.dp,
                 vertical = 20.dp
@@ -957,18 +956,57 @@ private fun TripsEmpty(
             color = WarmInkSoft
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        // The message sits in the middle of what is left, not stuck under the title.
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (hasMotorcycles) {
+                    FirstTripIllustration(
+                        modifier = Modifier.size(width = 240.dp, height = 160.dp)
+                    )
 
-        if (hasMotorcycles) {
-            PlanTripHero(
-                isFirstTrip = true,
-                onPlanTripClick = onCreateTripClick,
-                onRegisterCompletedTripClick = onRegisterCompletedTripClick
-            )
-        } else {
-            NoMotorcycleHero(
-                onAddMotorcycleClick = onAddMotorcycleClick
-            )
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text(
+                        text = "Nenhuma viagem no seu histórico",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = WarmInk,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Quando você planejar ou registrar uma viagem, ela aparece " +
+                                "aqui. Que tal começar pela Home?",
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = WarmInkSoft,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    RideButton(
+                        text = "Ir para a Home",
+                        onClick = onGoHomeClick,
+                        containerColor = WarmInk,
+                        contentColor = Color.White
+                    )
+                } else {
+                    NoMotorcycleHero(
+                        onAddMotorcycleClick = onAddMotorcycleClick
+                    )
+                }
+            }
         }
     }
 }

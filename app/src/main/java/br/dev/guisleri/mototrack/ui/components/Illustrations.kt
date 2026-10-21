@@ -232,3 +232,129 @@ internal fun GarageIllustration(
         )
     }
 }
+
+/**
+ * A road winding towards the horizon, with a pin that drops in at the end of
+ * it: the first trip is out there.
+ */
+@Composable
+internal fun FirstTripIllustration(
+    modifier: Modifier = Modifier
+) {
+    val pin = remember { Animatable(0f) }
+
+    LaunchedEffect(Unit) {
+        delay(300)
+        pin.animateTo(
+            1f,
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+        )
+    }
+
+    Canvas(modifier = modifier.clip(RoundedCornerShape(24.dp))) {
+        val w = size.width
+        val h = size.height
+        val horizon = h * 0.62f
+
+        // A small framed scene: sunrise sky over the land the road crosses.
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFFFFE3CC), Color(0xFFFFF4E8)),
+                startY = 0f,
+                endY = horizon
+            ),
+            size = Size(w, horizon)
+        )
+
+        drawCircle(
+            color = WarmEmber.copy(alpha = 0.9f),
+            radius = h * 0.17f,
+            center = Offset(w * 0.8f, h * 0.3f)
+        )
+
+        drawPath(
+            Path().apply {
+                moveTo(w * 0.02f, horizon)
+                lineTo(w * 0.3f, h * 0.3f)
+                lineTo(w * 0.58f, horizon)
+                close()
+            },
+            WarmEmber.copy(alpha = 0.26f)
+        )
+        drawPath(
+            Path().apply {
+                moveTo(w * 0.4f, horizon)
+                lineTo(w * 0.7f, h * 0.44f)
+                lineTo(w * 1f, horizon)
+                close()
+            },
+            WarmEmberDeep.copy(alpha = 0.4f)
+        )
+
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFFFFD6B8), WarmEmberTint),
+                startY = horizon,
+                endY = h
+            ),
+            topLeft = Offset(0f, horizon),
+            size = Size(w, h - horizon)
+        )
+
+        val vanishing = Offset(w * 0.6f, horizon)
+
+        val road = Path().apply {
+            moveTo(w * 0.14f, h)
+            cubicTo(w * 0.3f, h * 0.86f, w * 0.72f, h * 0.8f, vanishing.x - w * 0.012f, horizon)
+            lineTo(vanishing.x + w * 0.012f, horizon)
+            cubicTo(w * 0.8f, h * 0.82f, w * 0.5f, h * 0.88f, w * 0.48f, h)
+            close()
+        }
+        drawPath(road, WarmInk.copy(alpha = 0.92f))
+
+        val centerLine = Path().apply {
+            moveTo(w * 0.31f, h)
+            cubicTo(w * 0.4f, h * 0.86f, w * 0.74f, h * 0.8f, vanishing.x, horizon)
+        }
+        drawPath(
+            centerLine,
+            Color.White.copy(alpha = 0.85f),
+            style = Stroke(
+                width = 2.5.dp.toPx(),
+                cap = StrokeCap.Round,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 9.dp.toPx()))
+            )
+        )
+
+        // The pin stands on the horizon where the road ends.
+        val radius = h * 0.075f
+        val tip = vanishing
+        val center = Offset(tip.x, tip.y - radius * 2.1f)
+
+        scale(scale = pin.value, pivot = tip) {
+            val body = Path().apply {
+                moveTo(tip.x, tip.y)
+                cubicTo(
+                    center.x - radius * 1.1f, center.y + radius,
+                    center.x - radius, center.y + radius * 0.4f,
+                    center.x - radius, center.y
+                )
+                arcTo(
+                    androidx.compose.ui.geometry.Rect(
+                        center.x - radius, center.y - radius, center.x + radius, center.y + radius
+                    ),
+                    180f, 180f, false
+                )
+                cubicTo(
+                    center.x + radius, center.y + radius * 0.4f,
+                    center.x + radius * 1.1f, center.y + radius,
+                    tip.x, tip.y
+                )
+                close()
+            }
+
+            drawPath(body, WarmEmber)
+            drawCircle(Color.White, radius = radius * 0.42f, center = center)
+        }
+    }
+}
