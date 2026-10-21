@@ -5,8 +5,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.material.icons.outlined.DeleteOutline
-import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -62,7 +60,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -142,6 +139,10 @@ fun TripDetailsScreen(
                 mutableStateOf(false)
             }
 
+            var showShare by remember {
+                mutableStateOf(false)
+            }
+
             TripDetailsContent(
                 trip = uiState.trip,
                 isUpdatingStatus = uiState.isUpdatingStatus,
@@ -150,8 +151,16 @@ fun TripDetailsScreen(
                 onStartTripClick = onStartTripClick,
                 onCompleteTripClick = onCompleteTripClick,
                 onDeleteClick = { showDeleteConfirmation = true },
+                onShareClick = { showShare = true },
                 modifier = modifier
             )
+
+            if (showShare) {
+                TripShareDialog(
+                    trip = uiState.trip,
+                    onDismiss = { showShare = false }
+                )
+            }
 
             if (showDeleteConfirmation) {
                 TripDeleteConfirmationDialog(
@@ -316,10 +325,9 @@ private fun TripDetailsContent(
     onStartTripClick: () -> Unit,
     onCompleteTripClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    onShareClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -333,9 +341,7 @@ private fun TripDetailsContent(
     ) {
         TripDetailsTopBar(
             onBackClick = onBackClick,
-            onShareClick = {
-                shareTrip(context, trip)
-            },
+            onShareClick = onShareClick,
             onDeleteClick = onDeleteClick
         )
 
@@ -359,9 +365,7 @@ private fun TripDetailsContent(
             errorMessage = actionErrorMessage,
             onStartTripClick = onStartTripClick,
             onCompleteTripClick = onCompleteTripClick,
-            onShareClick = {
-                shareTrip(context, trip)
-            }
+            onShareClick = onShareClick
         )
 
         Spacer(modifier = Modifier.height(28.dp))
@@ -1284,35 +1288,6 @@ private fun TripDetailsError(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-private fun shareTrip(
-    context: Context,
-    trip: TripResponseDTO
-) {
-    val verb = when (trip.status) {
-        "COMPLETED" -> "Fiz esta viagem"
-        "IN_PROGRESS" -> "Estou nesta viagem"
-        else -> "Vou fazer esta viagem"
-    }
-
-    val text = buildString {
-        appendLine("🏍️ $verb: ${trip.origin} → ${trip.destination}")
-        appendLine(
-            "${formatKmNumber(trip.distanceKm)} km · ${formatTerrain(trip.terrain)} · " +
-                    formatTripDate(trip.tripDate)
-        )
-        appendLine("${trip.motorcycle.brand} ${trip.motorcycle.model}")
-        appendLine()
-        append("Registrado no MotoTrack")
-    }
-
-    val send = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, text)
-    }
-
-    context.startActivity(Intent.createChooser(send, "Compartilhar viagem"))
-}
 
 /** Value and caption of the third number tile, which depends on the status. */
 private fun timeStat(trip: TripResponseDTO): Pair<String, String> {
