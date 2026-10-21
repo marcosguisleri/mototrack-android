@@ -114,6 +114,7 @@ fun TripDetailsScreen(
     onConfirmTripDateUpdate: () -> Unit,
     onDismissTripDateUpdate: () -> Unit,
     onDeleteTripClick: () -> Unit,
+    onCelebrationFinished: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -143,17 +144,26 @@ fun TripDetailsScreen(
                 mutableStateOf(false)
             }
 
-            TripDetailsContent(
-                trip = uiState.trip,
-                isUpdatingStatus = uiState.isUpdatingStatus,
-                actionErrorMessage = uiState.actionErrorMessage,
-                onBackClick = onBackClick,
-                onStartTripClick = onStartTripClick,
-                onCompleteTripClick = onCompleteTripClick,
-                onDeleteClick = { showDeleteConfirmation = true },
-                onShareClick = { showShare = true },
-                modifier = modifier
-            )
+            Box(modifier = modifier) {
+                TripDetailsContent(
+                    trip = uiState.trip,
+                    isUpdatingStatus = uiState.isUpdatingStatus,
+                    actionErrorMessage = uiState.actionErrorMessage,
+                    onBackClick = onBackClick,
+                    onStartTripClick = onStartTripClick,
+                    onCompleteTripClick = onCompleteTripClick,
+                    onDeleteClick = { showDeleteConfirmation = true },
+                    onShareClick = { showShare = true }
+                )
+
+                uiState.celebration?.let { celebration ->
+                    TripCelebrationOverlay(
+                        celebration = celebration,
+                        trip = uiState.trip,
+                        onFinished = onCelebrationFinished
+                    )
+                }
+            }
 
             if (showShare) {
                 TripShareDialog(
@@ -198,15 +208,15 @@ private fun TripDeleteConfirmationDialog(
         message = when (trip.status) {
             "IN_PROGRESS" ->
                 "Esta viagem está em andamento. Ela será removida junto com tudo " +
-                        "o que foi registrado. Isso não pode ser desfeito."
+                        "o que foi registrado."
 
             "COMPLETED" ->
-                "Esta viagem concluída sai do seu histórico e das suas " +
-                        "estatísticas. Isso não pode ser desfeito."
+                "Esta viagem concluída sai do seu histórico e das suas estatísticas."
 
             else ->
-                "Esta viagem planejada será removida. Isso não pode ser desfeito."
+                "Esta viagem planejada será removida."
         },
+        warning = "Esta ação é permanente e não pode ser desfeita.",
         confirmText = "Excluir viagem",
         onConfirm = onConfirm,
         onDismissRequest = onDismiss,

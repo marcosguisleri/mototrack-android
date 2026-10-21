@@ -227,6 +227,44 @@ class TripDetailsViewModelTest {
         response.complete(Unit)
     }
 
+    @Test
+    fun startingATripCelebratesTheStartUntilItIsFinished() = runTest(dispatcher) {
+        val viewModel = TripDetailsViewModel(1, TripRepository(FakeTripApi()))
+
+        viewModel.startTrip()
+
+        assertEquals(
+            TripCelebration.STARTED,
+            (viewModel.uiState.value as TripDetailsUiState.Success).celebration
+        )
+
+        viewModel.celebrationFinished()
+
+        assertNull((viewModel.uiState.value as TripDetailsUiState.Success).celebration)
+    }
+
+    @Test
+    fun completingATripCelebratesTheCompletion() = runTest(dispatcher) {
+        val viewModel = TripDetailsViewModel(1, TripRepository(FakeTripApi()))
+
+        viewModel.completeTrip()
+
+        assertEquals(
+            TripCelebration.COMPLETED,
+            (viewModel.uiState.value as TripDetailsUiState.Success).celebration
+        )
+    }
+
+    @Test
+    fun failedStatusChangeCelebratesNothing() = runTest(dispatcher) {
+        val api = FakeTripApi().apply { onUpdateStatus = { throw IOException("offline") } }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.startTrip()
+
+        assertNull((viewModel.uiState.value as TripDetailsUiState.Success).celebration)
+    }
+
     private fun dateConflict() =
         HttpException(Response.error<Any>(409, "".toResponseBody()))
 

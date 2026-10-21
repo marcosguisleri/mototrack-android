@@ -156,6 +156,16 @@ class TripDetailsViewModel(
             )
     }
 
+    fun celebrationFinished() {
+        val currentState =
+            _uiState.value as? TripDetailsUiState.Success
+                ?: return
+
+        if (currentState.celebration != null) {
+            _uiState.value = currentState.copy(celebration = null)
+        }
+    }
+
     fun confirmTripDateUpdate() {
         val status = statusAwaitingDateUpdate ?: return
 
@@ -215,7 +225,12 @@ class TripDetailsViewModel(
                         trip = updatedTrip,
                         isUpdatingStatus = false,
                         actionErrorMessage = null,
-                        requiresTripDateUpdateConfirmation = false
+                        requiresTripDateUpdateConfirmation = false,
+                        celebration = if (status == "COMPLETED") {
+                            TripCelebration.COMPLETED
+                        } else {
+                            TripCelebration.STARTED
+                        }
                     )
 
             } catch (exception: CancellationException) {

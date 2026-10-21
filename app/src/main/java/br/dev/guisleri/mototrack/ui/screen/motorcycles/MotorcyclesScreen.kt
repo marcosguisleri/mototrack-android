@@ -322,7 +322,8 @@ private fun MotorcyclesContent(
         WarmDialog(
             icon = Icons.Outlined.DeleteOutline,
             title = "Excluir $motorcycleName?",
-            message = "A moto será removida da sua garagem. Isso não pode ser desfeito.",
+            message = "A moto será removida da sua garagem.",
+            warning = "Esta ação é permanente e não pode ser desfeita.",
             confirmText = "Excluir moto",
             onConfirm = { onDeleteMotorcycleClick(selectedMotorcycle.id) },
             onDismissRequest = { showDeleteConfirmation = false },

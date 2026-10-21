@@ -23,6 +23,11 @@ import org.junit.Assert.assertFalse
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import br.dev.guisleri.mototrack.ui.feedback.Feedback
+import br.dev.guisleri.mototrack.ui.feedback.FeedbackKind
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import org.junit.Before
 import org.junit.Test
 
@@ -193,6 +198,47 @@ class MotorcyclesViewModelTest {
         viewModel.dismissDeleteIssue()
 
         assertNull((viewModel.uiState.value as MotorcyclesUiState.Success).deleteIssue)
+    }
+
+    @Test
+    fun deletingAMotorcycleConfirmsItByName() = runTest(dispatcher) {
+        val motorcycles = listOf(motorcycle(1), motorcycle(2))
+        val viewModel = viewModel(motorcycles, api = FakeApi(motorcycles))
+
+        viewModel.deleteMotorcycle(2)
+
+        assertEquals(
+            Feedback("Moto excluída: Honda CB 500X", FeedbackKind.SUCCESS),
+            viewModel.feedback.first()
+        )
+    }
+
+    @Test
+    fun failedDeleteSendsNoConfirmation() = runTest(dispatcher) {
+        val motorcycles = listOf(motorcycle(1))
+        val api = FakeApi(motorcycles).apply { deleteFailure = IOException("offline") }
+        val viewModel = viewModel(motorcycles, api = api)
+
+        viewModel.deleteMotorcycle(1)
+        viewModel.setDefaultMotorcycle(1)
+
+        // The only message is the one about the default, so nothing was sent for the delete.
+        assertEquals(
+            listOf(Feedback("Moto padrão: Honda CB 500X")),
+            viewModel.feedback.take(1).toList()
+        )
+    }
+
+    @Test
+    fun settingTheDefaultConfirmsIt() = runTest(dispatcher) {
+        val viewModel = viewModel(listOf(motorcycle(1), motorcycle(2)))
+
+        viewModel.setDefaultMotorcycle(2)
+
+        assertEquals(
+            Feedback("Moto padrão: Honda CB 500X"),
+            viewModel.feedback.first()
+        )
     }
 
     private class FakePreferences(defaultId: Long? = null) : MotorcyclePreferences {

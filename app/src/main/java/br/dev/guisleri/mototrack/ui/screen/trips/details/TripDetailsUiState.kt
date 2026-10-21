@@ -12,11 +12,18 @@ sealed interface TripDetailsUiState {
         val isDeleting: Boolean = false,
         val isDeleted: Boolean = false,
         val actionErrorMessage: String? = null,
-        val requiresTripDateUpdateConfirmation: Boolean = false
+        val requiresTripDateUpdateConfirmation: Boolean = false,
+        // Set when the trip has just started or finished, until the animation is over.
+        val celebration: TripCelebration? = null
     ) : TripDetailsUiState
 
     data class Error(
         val message: String
     ) : TripDetailsUiState
 
+}
+/** What the rider has just done to the trip, for the animation that marks it. */
+enum class TripCelebration {
+    STARTED,
+    COMPLETED
 }

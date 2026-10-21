@@ -4,6 +4,9 @@ import android.Manifest
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +47,9 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -98,6 +104,23 @@ fun ProfileScreen(
     }
 
     var openedAchievement by rememberSaveable { mutableStateOf<AchievementKind?>(null) }
+    var showLogoutConfirmation by rememberSaveable { mutableStateOf(false) }
+
+    if (showLogoutConfirmation) {
+        WarmDialog(
+            icon = Icons.AutoMirrored.Outlined.Logout,
+            title = "Sair da conta?",
+            message = "Você vai precisar entrar de novo para ver suas viagens. " +
+                    "Os lembretes de viagem deste aparelho ficam pausados até lá.",
+            confirmText = "Sair",
+            onConfirm = {
+                showLogoutConfirmation = false
+                onLogoutClick()
+            },
+            onDismissRequest = { showLogoutConfirmation = false },
+            dismissText = "Continuar no app"
+        )
+    }
 
     openedAchievement
         ?.let { kind -> stats?.achievements?.firstOrNull { it.kind == kind } }
@@ -154,7 +177,7 @@ fun ProfileScreen(
         RideOutlinedButton(
             text = if (isLoggingOut) "Saindo..." else "Sair da conta",
             icon = Icons.AutoMirrored.Outlined.Logout,
-            onClick = { if (!isLoggingOut) onLogoutClick() },
+            onClick = { if (!isLoggingOut) showLogoutConfirmation = true },
             color = WarmInkSoft,
             modifier = Modifier.padding(top = 4.dp)
         )
@@ -280,19 +303,19 @@ private fun IdentityCard(
 private fun StatsRow(stats: ProfileStats?) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         StatCard(
-            value = stats?.let { formatNumber(it.totalKm) },
+            value = stats?.totalKm,
             label = "km rodados",
             modifier = Modifier.weight(1f)
         )
 
         StatCard(
-            value = stats?.completedTrips?.toString(),
+            value = stats?.completedTrips?.toDouble(),
             label = "viagens",
             modifier = Modifier.weight(1f)
         )
 
         StatCard(
-            value = stats?.destinationCount?.toString(),
+            value = stats?.destinationCount?.toDouble(),
             label = "destinos",
             modifier = Modifier.weight(1f)
         )
@@ -301,7 +324,7 @@ private fun StatsRow(stats: ProfileStats?) {
 
 @Composable
 private fun StatCard(
-    value: String?,
+    value: Double?,
     label: String,
     modifier: Modifier = Modifier
 ) {
@@ -316,7 +339,7 @@ private fun StatCard(
                 ShimmerBlock(Modifier.size(width = 44.dp, height = 26.dp))
             } else {
                 Text(
-                    text = value,
+                    text = formatNumber(animatedFrom0(value.toFloat()).toDouble()),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = WarmInk,
@@ -463,8 +486,10 @@ private fun AchievementTile(
                     color = WarmEmber
                 )
             } else {
+                val animatedFraction = animatedFrom0(achievement.fraction)
+
                 LinearProgressIndicator(
-                    progress = { achievement.fraction },
+                    progress = { animatedFraction },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
@@ -698,3 +723,17 @@ internal fun visitsLabel(visits: Int): String =
 
 private fun formatProgress(value: Double): String =
     formatNumber(value.coerceAtLeast(0.0))
+
+/** Counts up from zero the first time it is shown, then follows [target] smoothly. */
+@Composable
+private fun animatedFrom0(target: Float): Float {
+    var shown by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(target) { shown = target }
+
+    return animateFloatAsState(
+        targetValue = shown,
+        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+        label = "profile-count"
+    ).value
+}

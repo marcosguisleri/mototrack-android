@@ -13,6 +13,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import br.dev.guisleri.mototrack.ui.feedback.Feedback
+import br.dev.guisleri.mototrack.ui.feedback.FeedbackHost
+import br.dev.guisleri.mototrack.ui.feedback.FeedbackKind
+import br.dev.guisleri.mototrack.ui.feedback.showFeedback
+import br.dev.guisleri.mototrack.ui.components.formatTripDate
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -110,6 +118,18 @@ fun MainScreen(
                 homeViewModel.loadHome()
             }
         }
+    }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val feedbackScope = rememberCoroutineScope()
+
+    // Lives in this scope, not in a screen's, so a message survives the screen closing.
+    val showFeedback: (Feedback) -> Unit = remember {
+        { feedback -> feedbackScope.launch { snackbarHostState.showFeedback(feedback) } }
+    }
+
+    LaunchedEffect(motorcyclesViewModel) {
+        motorcyclesViewModel.feedback.collect(showFeedback)
     }
 
     val homeUiState by homeViewModel
@@ -240,6 +260,7 @@ fun MainScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = WarmCanvas,
+        snackbarHost = { FeedbackHost(snackbarHostState) },
         bottomBar = {
             if (showBottomBar) {
                 MotoTrackBottomBar(
@@ -380,6 +401,13 @@ fun MainScreen(
 
                             LaunchedEffect(motorcycleCreateUiState.isCreated) {
                                 if (motorcycleCreateUiState.isCreated) {
+                                    showFeedback(
+                                        Feedback(
+                                            "Moto cadastrada: " +
+                                                    "${motorcycleCreateUiState.brand.trim()} " +
+                                                    motorcycleCreateUiState.model.trim()
+                                        )
+                                    )
                                     motorcyclesViewModel.loadMotorcycles()
                                     homeViewModel.loadHome()
                                     backStack.removeLastOrNull()
@@ -434,6 +462,20 @@ fun MainScreen(
 
                             LaunchedEffect(tripCreateUiState.isCreated) {
                                 if (tripCreateUiState.isCreated) {
+                                    showFeedback(
+                                        Feedback(
+                                            when (tripCreateUiState.mode) {
+                                                TripCreateMode.PLANNED ->
+                                                    "Viagem planejada para " +
+                                                            formatTripDate(
+                                                                tripCreateUiState.tripDate.toString()
+                                                            )
+
+                                                TripCreateMode.COMPLETED ->
+                                                    "Viagem registrada no seu histórico"
+                                            }
+                                        )
+                                    )
                                     tripsViewModel.refreshTrips()
                                     homeViewModel.loadHome()
                                     backStack.removeLastOrNull()
@@ -533,6 +575,16 @@ fun MainScreen(
                                 onRemindersChange = { enabled ->
                                     reminderScheduler.isEnabled = enabled
                                     remindersEnabled = enabled
+                                    showFeedback(
+                                        Feedback(
+                                            if (enabled) {
+                                                "Lembretes de viagem ativados"
+                                            } else {
+                                                "Lembretes de viagem desativados"
+                                            },
+                                            FeedbackKind.INFO
+                                        )
+                                    )
                                 },
                                 isLoggingOut = isLoggingOut,
                                 onLogoutClick = onLogoutClick,
@@ -563,6 +615,11 @@ fun MainScreen(
 
                             LaunchedEffect(tripWasDeleted) {
                                 if (tripWasDeleted) {
+                                    (tripDetailsUiState as? TripDetailsUiState.Success)?.trip?.let { trip ->
+                                        showFeedback(
+                                            Feedback("Viagem excluída: ${trip.origin} → ${trip.destination}")
+                                        )
+                                    }
                                     tripsViewModel.refreshTrips()
                                     homeViewModel.loadHome()
                                     motorcyclesViewModel.loadMotorcycles()
@@ -591,6 +648,7 @@ fun MainScreen(
                                 onDismissTripDateUpdate =
                                     tripDetailsViewModel::dismissTripDateUpdateConfirmation,
                                 onDeleteTripClick = tripDetailsViewModel::deleteTrip,
+                                onCelebrationFinished = tripDetailsViewModel::celebrationFinished,
                                 modifier = Modifier
                                     .background(WarmCanvas)
                                     .padding(innerPadding)

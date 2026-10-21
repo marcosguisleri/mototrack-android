@@ -4,6 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.dev.guisleri.mototrack.data.local.MotorcyclePreferences
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
+import br.dev.guisleri.mototrack.ui.feedback.Feedback
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -26,6 +30,11 @@ class MotorcyclesViewModel(
 
     val uiState: StateFlow<MotorcyclesUiState> =
         _uiState.asStateFlow()
+
+    // One-off confirmations; buffered so none is lost while nobody is collecting.
+    private val _feedback = Channel<Feedback>(Channel.BUFFERED)
+
+    val feedback: Flow<Feedback> = _feedback.receiveAsFlow()
 
     private var motorcyclesJob: Job? = null
     private var statisticsJob: Job? = null
@@ -140,6 +149,10 @@ class MotorcyclesViewModel(
 
         if (currentState.isDeleting) return
 
+        val deletedName = currentState.motorcycles
+            .firstOrNull { it.id == motorcycleId }
+            ?.let { "${it.brand} ${it.model}" }
+
         _uiState.value = currentState.copy(
             isDeleting = true,
             deleteIssue = null
@@ -148,6 +161,12 @@ class MotorcyclesViewModel(
         viewModelScope.launch {
             try {
                 motorcycleRepository.deleteMotorcycle(motorcycleId)
+
+                _feedback.trySend(
+                    Feedback(
+                        if (deletedName != null) "Moto excluída: $deletedName" else "Moto excluída"
+                    )
+                )
 
                 loadMotorcycles()
 
@@ -215,6 +234,12 @@ class MotorcyclesViewModel(
         _uiState.value = currentState.copy(
             defaultMotorcycleId = motorcycleId
         )
+
+        currentState.motorcycles.firstOrNull { it.id == motorcycleId }?.let { motorcycle ->
+            _feedback.trySend(
+                Feedback("Moto padrão: ${motorcycle.brand} ${motorcycle.model}")
+            )
+        }
 
         viewModelScope.launch {
             try {
