@@ -47,6 +47,7 @@ import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesScreen
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesUiState
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
 import br.dev.guisleri.mototrack.ui.screen.profile.ProfileScreen
+import br.dev.guisleri.mototrack.ui.screen.profile.ProfileViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsScreen
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsUiState
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModel
@@ -64,6 +65,7 @@ fun MainScreen(
     homeViewModel: HomeViewModel,
     motorcyclesViewModel: MotorcyclesViewModel,
     tripsViewModel: TripsViewModel,
+    profileViewModel: ProfileViewModel,
     tripRepository: TripRepository,
     motorcycleRepository: MotorcycleRepository,
     motorcyclePreferences: MotorcyclePreferences,
@@ -117,6 +119,10 @@ fun MainScreen(
         .uiState
         .collectAsStateWithLifecycle()
 
+    val profileUiState by profileViewModel
+        .uiState
+        .collectAsStateWithLifecycle()
+
     // The navigation entries below are created once and keep their lambdas, so
     // anything they read from here must be observable state, never a plain value.
 
@@ -135,6 +141,16 @@ fun MainScreen(
             when (val state = tripsUiState) {
                 is TripsUiState.Success -> state.trips
                 TripsUiState.Empty -> emptyList()
+                else -> null
+            }
+        }
+    }
+
+    val garageSize by remember {
+        derivedStateOf {
+            when (val state = motorcyclesUiState) {
+                is MotorcyclesUiState.Success -> state.motorcycles.size
+                MotorcyclesUiState.Empty -> 0
                 else -> null
             }
         }
@@ -491,11 +507,15 @@ fun MainScreen(
                     MainDestination.PROFILE ->
                         NavEntry(destination) {
                             ProfileScreen(
+                                uiState = profileUiState,
+                                trips = homeTrips,
+                                motorcycleCount = garageSize,
+                                onRetryUserClick = profileViewModel::loadUser,
                                 isLoggingOut = isLoggingOut,
                                 onLogoutClick = onLogoutClick,
-                                modifier = Modifier.padding(
-                                    innerPadding
-                                )
+                                modifier = Modifier
+                                    .background(WarmCanvas)
+                                    .padding(innerPadding)
                             )
                         }
 

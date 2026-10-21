@@ -52,6 +52,8 @@ import br.dev.guisleri.mototrack.data.remote.user.UserApiService
 import br.dev.guisleri.mototrack.data.repository.TripRepository
 import br.dev.guisleri.mototrack.data.repository.UserRepository
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
+import br.dev.guisleri.mototrack.ui.screen.profile.ProfileViewModel
+import br.dev.guisleri.mototrack.ui.screen.profile.ProfileViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModelFactory
@@ -364,10 +366,17 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             )
                         )
 
+                        val profileViewModel: ProfileViewModel = viewModel(
+                            factory = ProfileViewModelFactory(
+                                userRepository = userRepository
+                            )
+                        )
+
                         MainScreen(
                             homeViewModel = homeViewModel,
                             motorcyclesViewModel = motorcyclesViewModel,
                             tripsViewModel = tripsViewModel,
+                            profileViewModel = profileViewModel,
                             tripRepository = tripRepository,
                             motorcycleRepository = motorcycleRepository,
                             motorcyclePreferences = motorcyclePreferences,
