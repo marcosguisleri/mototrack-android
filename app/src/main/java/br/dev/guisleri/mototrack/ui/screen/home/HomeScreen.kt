@@ -1,13 +1,15 @@
 package br.dev.guisleri.mototrack.ui.screen.home
 
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,63 +26,79 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Route
-import androidx.compose.material.icons.outlined.SignalCellularAlt
 import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.outlined.Terrain
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.TwoWheeler
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import br.dev.guisleri.mototrack.data.model.home.HomeResponseDTO
 import br.dev.guisleri.mototrack.data.model.home.NextTripDTO
 import br.dev.guisleri.mototrack.data.model.home.TripSummaryDTO
-import br.dev.guisleri.mototrack.ui.theme.MotoTrackTheme
+import br.dev.guisleri.mototrack.ui.components.GarageIllustration
+import br.dev.guisleri.mototrack.ui.components.HeroPill
+import br.dev.guisleri.mototrack.ui.components.PulsingDot
+import br.dev.guisleri.mototrack.ui.components.NoMotorcycleHero
+import br.dev.guisleri.mototrack.ui.components.PlanTripHero
+import br.dev.guisleri.mototrack.ui.components.RideButton
+import br.dev.guisleri.mototrack.ui.components.RideOutlinedButton
+import br.dev.guisleri.mototrack.ui.components.RoadDecoration
+import br.dev.guisleri.mototrack.ui.components.RouteTimeline
+import br.dev.guisleri.mototrack.ui.components.ShimmerBlock
+import br.dev.guisleri.mototrack.ui.components.SunriseIllustration
+import br.dev.guisleri.mototrack.ui.components.TripFacts
+import br.dev.guisleri.mototrack.ui.components.formatDistance
+import br.dev.guisleri.mototrack.ui.components.formatNumber
+import br.dev.guisleri.mototrack.ui.components.formatTerrain
+import br.dev.guisleri.mototrack.ui.components.formatTripDate
+import br.dev.guisleri.mototrack.ui.theme.EmberHeroBrush
+import br.dev.guisleri.mototrack.ui.theme.GraphiteHeroBrush
+import br.dev.guisleri.mototrack.ui.theme.SunriseHeroBrush
+import br.dev.guisleri.mototrack.ui.theme.WarmCanvas
+import br.dev.guisleri.mototrack.ui.theme.WarmCard
+import br.dev.guisleri.mototrack.ui.theme.WarmEmber
+import br.dev.guisleri.mototrack.ui.theme.WarmEmberDeep
+import br.dev.guisleri.mototrack.ui.theme.WarmEmberOnDark
+import br.dev.guisleri.mototrack.ui.theme.WarmEmberTint
+import br.dev.guisleri.mototrack.ui.theme.WarmHairline
+import br.dev.guisleri.mototrack.ui.theme.WarmInk
+import br.dev.guisleri.mototrack.ui.theme.WarmInkSoft
+import br.dev.guisleri.mototrack.ui.theme.WarmMuted
+import br.dev.guisleri.mototrack.ui.theme.WarmSuccess
+import br.dev.guisleri.mototrack.ui.theme.WarmSuccessTint
 import java.text.NumberFormat
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import java.time.LocalTime
 import java.util.Locale
 
-// ---------------------------------------------------------------------------
-// Gradients of the dark trip cards (in-progress / upcoming)
-// ---------------------------------------------------------------------------
+private const val EARTH_CIRCUMFERENCE_KM = 40_075.0
 
-private val InProgressBrush = Brush.linearGradient(
-    colors = listOf(Color(0xFF0F3B45), Color(0xFF0B1F2A))
-)
-
-private val UpcomingBrush = Brush.linearGradient(
-    colors = listOf(Color(0xFF1E2A44), Color(0xFF0F172A))
-)
-
-private val InProgressGreen = Color(0xFF16A34A)
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -90,8 +108,12 @@ private val InProgressGreen = Color(0xFF16A34A)
 fun HomeScreen(
     uiState: HomeUiState,
     onRetryClick: () -> Unit,
+    onRefresh: () -> Unit,
     onAddMotorcycleClick: () -> Unit,
     onTripsClick: () -> Unit,
+    onTripClick: (Long) -> Unit,
+    onPlanTripClick: () -> Unit,
+    onRegisterCompletedTripClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -103,15 +125,22 @@ fun HomeScreen(
         }
 
         is HomeUiState.Success -> {
-            HomeContent(
-                home = uiState.home,
-                highlight = uiState.highlight,
+            PullToRefreshBox(
                 isRefreshing = uiState.isRefreshing,
-                refreshErrorMessage = uiState.refreshErrorMessage,
-                onAddMotorcycleClick = onAddMotorcycleClick,
-                onTripsClick = onTripsClick,
-                modifier = modifier
-            )
+                onRefresh = onRefresh,
+                modifier = modifier.fillMaxSize()
+            ) {
+                HomeContent(
+                    home = uiState.home,
+                    highlight = uiState.highlight,
+                    refreshErrorMessage = uiState.refreshErrorMessage,
+                    onAddMotorcycleClick = onAddMotorcycleClick,
+                    onTripsClick = onTripsClick,
+                    onTripClick = onTripClick,
+                    onPlanTripClick = onPlanTripClick,
+                    onRegisterCompletedTripClick = onRegisterCompletedTripClick
+                )
+            }
         }
 
         is HomeUiState.Error -> {
@@ -124,130 +153,145 @@ fun HomeScreen(
     }
 }
 
-@Preview(
-    name = "Error",
-    group = "Home states",
-    widthDp = 360,
-    heightDp = 640,
-    showBackground = true,
-    backgroundColor = 0xFFF5F7FA
-)
-@Composable
-private fun HomeScreenErrorPreview() {
-    MotoTrackTheme {
-        HomeScreen(
-            uiState = HomeUiState.Error(
-                message = "Verifique sua conexão e tente novamente."
-            ),
-            onRetryClick = {},
-            onAddMotorcycleClick = {},
-            onTripsClick = {}
-        )
-    }
-}
-
-@Preview(
-    name = "Loading",
-    group = "Home states",
-    widthDp = 360,
-    heightDp = 640,
-    showBackground = true,
-    backgroundColor = 0xFFF5F7FA
-)
-@Composable
-private fun HomeScreenLoadingPreview() {
-    MotoTrackTheme {
-        HomeScreen(
-            uiState = HomeUiState.Loading,
-            onRetryClick = {},
-            onAddMotorcycleClick = {},
-            onTripsClick = {}
-        )
-    }
-}
-
 @Composable
 private fun HomeContent(
     home: HomeResponseDTO,
     highlight: HomeHighlightState,
-    isRefreshing: Boolean,
     refreshErrorMessage: String?,
     onAddMotorcycleClick: () -> Unit,
     onTripsClick: () -> Unit,
+    onTripClick: (Long) -> Unit,
+    onPlanTripClick: () -> Unit,
+    onRegisterCompletedTripClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isFirstTrip =
+        home.completedTrips == 0L && home.lastCompletedTrip == null
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(
-                horizontal = 20.dp,
-                vertical = 20.dp
+                start = 20.dp,
+                end = 20.dp,
+                top = 20.dp,
+                bottom = 28.dp
             )
     ) {
 
-        HomeHeader()
+        HomeHeader(
+            subtitle = when (highlight) {
+                is HomeHighlightState.InProgress ->
+                    "Boa viagem! Siga firme na estrada."
+
+                HomeHighlightState.NoMotorcycle ->
+                    "Vamos montar a sua garagem?"
+
+                is HomeHighlightState.UpcomingTrip ->
+                    "Falta pouco para a próxima aventura."
+
+                HomeHighlightState.NoUpcomingTrip ->
+                    if (isFirstTrip) {
+                        "Sua primeira viagem está te esperando."
+                    } else {
+                        "Para onde vamos agora?"
+                    }
+            }
+        )
 
         refreshErrorMessage?.let { message ->
+            Spacer(modifier = Modifier.height(12.dp))
+
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-        if (isRefreshing) {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
+                color = MaterialTheme.colorScheme.error
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        HomeHighlightCard(
-            highlight = highlight,
-            onAddMotorcycleClick = onAddMotorcycleClick,
-            onTripsClick = onTripsClick
-        )
+        when (highlight) {
+
+            is HomeHighlightState.InProgress -> {
+                InProgressHero(
+                    trip = highlight.trip,
+                    onClick = {
+                        onTripClick(highlight.trip.id)
+                    }
+                )
+            }
+
+            HomeHighlightState.NoMotorcycle -> {
+                NoMotorcycleHero(
+                    onAddMotorcycleClick = onAddMotorcycleClick
+                )
+            }
+
+            is HomeHighlightState.UpcomingTrip -> {
+                UpcomingHero(
+                    trip = highlight.trip,
+                    onClick = {
+                        onTripClick(highlight.trip.id)
+                    }
+                )
+            }
+
+            HomeHighlightState.NoUpcomingTrip -> {
+                PlanTripHero(
+                    isFirstTrip = isFirstTrip,
+                    onPlanTripClick = onPlanTripClick,
+                    onRegisterCompletedTripClick = onRegisterCompletedTripClick
+                )
+            }
+        }
+
+        if (
+            highlight is HomeHighlightState.InProgress ||
+            highlight is HomeHighlightState.UpcomingTrip
+        ) {
+            Spacer(modifier = Modifier.height(14.dp))
+
+            QuickActions(
+                onPlanTripClick = onPlanTripClick,
+                onRegisterCompletedTripClick = onRegisterCompletedTripClick
+            )
+        }
 
         if (highlight == HomeHighlightState.NoMotorcycle) {
-
             Spacer(modifier = Modifier.height(20.dp))
 
             NoMotorcycleBenefits()
         }
 
         if (home.motorcycleCount > 0) {
+            Spacer(modifier = Modifier.height(28.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            HomeSummarySection(
+            RoadStatsCard(
                 totalDistanceKm = home.totalCompletedDistanceKm,
+                distanceThisYearKm = home.distanceThisYearKm,
                 completedTrips = home.completedTrips,
-                distanceThisYearKm = home.distanceThisYearKm
-            )
-        }
-
-        if (highlight is HomeHighlightState.UpcomingTrip) {
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            HomeSoftButton(
-                text = "Registrar viagem realizada",
-                icon = Icons.Outlined.Route,
-                onClick = onTripsClick
+                motorcycleCount = home.motorcycleCount
             )
         }
 
         home.lastCompletedTrip?.let { trip ->
+            Spacer(modifier = Modifier.height(28.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
+            SectionHeader(
+                title = "Última viagem",
+                actionLabel = "Ver histórico",
+                onActionClick = onTripsClick
+            )
 
-            LastCompletedTripSection(
+            Spacer(modifier = Modifier.height(12.dp))
+
+            LastTripCard(
                 trip = trip,
-                onClick = onTripsClick
+                onClick = {
+                    onTripClick(trip.id)
+                }
             )
         }
     }
@@ -258,599 +302,717 @@ private fun HomeContent(
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun HomeHeader() {
-    val darkColor = MaterialTheme.colorScheme.onBackground
-    val brandColor = MaterialTheme.colorScheme.primary
+private fun HomeHeader(
+    subtitle: String
+) {
+    val greeting = remember { greetingForNow() }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = Modifier.fillMaxWidth()
     ) {
+        Text(
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(color = WarmInk)) {
+                    append("MOTO")
+                }
+                withStyle(SpanStyle(color = WarmEmber)) {
+                    append("TRACK")
+                }
+            },
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 2.sp
+        )
 
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
+        Spacer(modifier = Modifier.height(14.dp))
 
-            Text(
-                text = buildAnnotatedString {
-                    withStyle(SpanStyle(color = darkColor)) {
-                        append("Moto")
-                    }
-                    withStyle(SpanStyle(color = brandColor)) {
-                        append("Track")
-                    }
-                },
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.ExtraBold
-            )
+        Text(
+            text = greeting,
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.ExtraBold,
+            color = WarmInk
+        )
 
-            Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = "Pronto para a próxima jornada?",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        MountainIllustration(
-            modifier = Modifier.size(
-                width = 112.dp,
-                height = 64.dp
-            )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyLarge,
+            color = WarmInkSoft
         )
     }
 }
 
 // ---------------------------------------------------------------------------
-// Highlight card (4 states)
+// Heroes
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun HomeHighlightCard(
-    highlight: HomeHighlightState,
-    onAddMotorcycleClick: () -> Unit,
-    onTripsClick: () -> Unit
+private fun InProgressHero(
+    trip: TripSummaryDTO,
+    onClick: () -> Unit
 ) {
-    when (highlight) {
-
-        is HomeHighlightState.InProgress -> {
-            InProgressTripCard(
-                trip = highlight.trip,
-                onClick = onTripsClick
+    HeroCard(
+        brush = EmberHeroBrush,
+        onClick = onClick,
+        onClickLabel = "Abrir viagem em andamento",
+        decoration = {
+            RoadDecoration(
+                modifier = Modifier.matchParentSize(),
+                color = Color.White
             )
         }
+    ) {
+        HeroPill(
+            text = "EM ANDAMENTO",
+            containerColor = Color.White.copy(alpha = 0.2f),
+            contentColor = Color.White,
+            leading = {
+                PulsingDot(color = Color.White)
+            }
+        )
 
-        HomeHighlightState.NoMotorcycle -> {
-            NoMotorcycleCard(
-                onAddMotorcycleClick = onAddMotorcycleClick
+        Spacer(modifier = Modifier.height(20.dp))
+
+        RouteTimeline(
+            origin = trip.origin,
+            destination = trip.destination,
+            textColor = Color.White,
+            accentColor = Color.White,
+            lineColor = Color.White.copy(alpha = 0.55f)
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        TripFacts(
+            distance = formatDistance(trip.distanceKm),
+            terrain = formatTerrain(trip.terrain),
+            date = formatTripDate(trip.tripDate),
+            motorcycleName = "${trip.motorcycle.brand} ${trip.motorcycle.model}",
+            chipColor = Color.White.copy(alpha = 0.18f),
+            contentColor = Color.White
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        RideButton(
+            text = "Continuar viagem",
+            onClick = onClick,
+            containerColor = Color.White,
+            contentColor = WarmEmberDeep
+        )
+    }
+}
+
+@Composable
+private fun UpcomingHero(
+    trip: NextTripDTO,
+    onClick: () -> Unit
+) {
+    HeroCard(
+        brush = GraphiteHeroBrush,
+        onClick = onClick,
+        onClickLabel = "Abrir próxima viagem",
+        decoration = {
+            RoadDecoration(
+                modifier = Modifier.matchParentSize(),
+                color = Color.White
             )
         }
+    ) {
+        HeroPill(
+            text = "PRÓXIMA VIAGEM",
+            containerColor = WarmEmber.copy(alpha = 0.2f),
+            contentColor = WarmEmberOnDark,
+            leading = {
+                Icon(
+                    imageVector = Icons.Outlined.CalendarMonth,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = WarmEmberOnDark
+                )
+            }
+        )
 
-        is HomeHighlightState.UpcomingTrip -> {
-            UpcomingTripCard(
-                trip = highlight.trip,
-                onClick = onTripsClick
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Countdown(daysUntil = trip.daysUntil)
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        RouteTimeline(
+            origin = trip.origin,
+            destination = trip.destination,
+            textColor = Color.White,
+            accentColor = WarmEmberOnDark,
+            lineColor = Color.White.copy(alpha = 0.35f)
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        TripFacts(
+            distance = formatDistance(trip.distanceKm),
+            terrain = formatTerrain(trip.terrain),
+            date = formatTripDate(trip.tripDate),
+            motorcycleName = "${trip.motorcycle.brand} ${trip.motorcycle.model}",
+            chipColor = Color.White.copy(alpha = 0.1f),
+            contentColor = Color.White
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Ver detalhes",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = WarmEmberOnDark
             )
-        }
 
-        HomeHighlightState.NoUpcomingTrip -> {
-            NoUpcomingTripCard(
-                onTripsClick = onTripsClick
+            Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = WarmEmberOnDark
             )
         }
     }
 }
 
+
+
+/** Shared frame of the full-bleed heroes; the content is a free slot. */
 @Composable
-private fun InProgressTripCard(
-    trip: TripSummaryDTO,
-    onClick: () -> Unit
-) {
-    DarkTripCard(
-        brush = InProgressBrush,
-        badge = {
-            TripPill(
-                text = "VIAGEM EM ANDAMENTO",
-                icon = Icons.Filled.PlayArrow,
-                containerColor = InProgressGreen,
-                contentColor = Color.White
-            )
-        },
-        origin = trip.origin,
-        destination = trip.destination,
-        date = formatTripDate(trip.tripDate),
-        distance = formatDistance(trip.distanceKm),
-        terrain = formatTerrain(trip.terrain),
-        motorcycleName = "${trip.motorcycle.brand} ${trip.motorcycle.model}",
-        onClick = onClick,
-        footer = {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            HomePrimaryButton(
-                text = "Ver detalhes",
-                onClick = onClick
-            )
-        }
-    )
-}
-
-@Composable
-private fun UpcomingTripCard(
-    trip: NextTripDTO,
-    onClick: () -> Unit
-) {
-    val accent = MaterialTheme.colorScheme.secondary
-
-    DarkTripCard(
-        brush = UpcomingBrush,
-        badge = {
-            TripPill(
-                text = "PRÓXIMA VIAGEM",
-                icon = Icons.Outlined.CalendarMonth,
-                containerColor = accent.copy(alpha = 0.25f),
-                contentColor = Color.White
-            )
-        },
-        trailing = {
-            Text(
-                text = formatDaysUntil(trip.daysUntil),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = accent
-            )
-        },
-        origin = trip.origin,
-        destination = trip.destination,
-        date = formatTripDate(trip.tripDate),
-        distance = formatDistance(trip.distanceKm),
-        terrain = formatTerrain(trip.terrain),
-        motorcycleName = "${trip.motorcycle.brand} ${trip.motorcycle.model}",
-        onClick = onClick
-    )
-}
-
-/**
- * Shared layout of the two dark cards. The badge, the trailing text
- * and the footer are slots, so each state only describes what is different.
- */
-@Composable
-private fun DarkTripCard(
+private fun HeroCard(
     brush: Brush,
-    badge: @Composable () -> Unit,
-    origin: String,
-    destination: String,
-    date: String,
-    distance: String,
-    terrain: String,
-    motorcycleName: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    trailing: @Composable () -> Unit = {},
-    footer: @Composable () -> Unit = {}
+    onClickLabel: String,
+    decoration: @Composable BoxScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit
 ) {
     Box(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(28.dp))
             .background(brush)
-            .clickable(onClick = onClick)
-            .padding(20.dp)
+            .clickable(
+                onClickLabel = onClickLabel,
+                role = Role.Button,
+                onClick = onClick
+            )
     ) {
-        Column {
+        decoration()
 
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(22.dp),
+            content = content
+        )
+    }
+}
+
+
+
+@Composable
+private fun Countdown(
+    daysUntil: Long
+) {
+    when {
+        daysUntil <= 0L -> {
+            Text(
+                text = "É hoje!",
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = WarmEmberOnDark
+            )
+        }
+
+        daysUntil == 1L -> {
+            Text(
+                text = "Amanhã",
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = WarmEmberOnDark
+            )
+        }
+
+        else -> {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Bottom
             ) {
-                badge()
-                trailing()
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    RoutePoint(text = origin)
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    RoutePoint(text = destination)
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                ChevronCircle()
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            DarkDivider()
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TripFact(
-                    icon = Icons.Outlined.CalendarMonth,
-                    value = date,
-                    caption = "Data",
-                    modifier = Modifier.weight(1.3f)
-                )
-
-                TripFact(
-                    icon = Icons.Outlined.Route,
-                    value = distance,
-                    caption = "Distância",
-                    modifier = Modifier.weight(1f)
-                )
-
-                TripFact(
-                    icon = Icons.Outlined.Terrain,
-                    value = terrain,
-                    caption = "Terreno",
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            DarkDivider()
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.TwoWheeler,
-                    contentDescription = null,
-                    modifier = Modifier.size(22.dp),
-                    tint = MaterialTheme.colorScheme.secondary
+                Text(
+                    text = NumberFormat
+                        .getIntegerInstance(Locale.forLanguageTag("pt-BR"))
+                        .format(daysUntil),
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = WarmEmberOnDark,
+                    maxLines = 1
                 )
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                Text(
-                    text = motorcycleName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-            }
+                Column(
+                    modifier = Modifier.padding(bottom = 8.dp)
+                ) {
+                    Text(
+                        text = "dias",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
 
-            footer()
+                    Text(
+                        text = "para a partida",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.65f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+
+
+// ---------------------------------------------------------------------------
+// Quick actions
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun QuickActions(
+    onPlanTripClick: () -> Unit,
+    onRegisterCompletedTripClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        QuickActionTile(
+            icon = Icons.Outlined.CalendarMonth,
+            title = "Planejar",
+            subtitle = "Nova viagem",
+            onClick = onPlanTripClick,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+        )
+
+        QuickActionTile(
+            icon = Icons.Outlined.TaskAlt,
+            title = "Registrar",
+            subtitle = "Viagem feita",
+            onClick = onRegisterCompletedTripClick,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+        )
+    }
+}
+
+@Composable
+private fun QuickActionTile(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(WarmCard)
+            .border(
+                border = BorderStroke(1.dp, WarmHairline),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .clickable(
+                role = Role.Button,
+                onClick = onClick
+            )
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(WarmEmberTint, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = WarmEmber
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = WarmInk,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = WarmMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Road stats
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun RoadStatsCard(
+    totalDistanceKm: Double,
+    distanceThisYearKm: Double,
+    completedTrips: Long,
+    motorcycleCount: Long
+) {
+    val worldLaps = totalDistanceKm / EARTH_CIRCUMFERENCE_KM
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(WarmCard)
+            .border(
+                border = BorderStroke(1.dp, WarmHairline),
+                shape = RoundedCornerShape(28.dp)
+            )
+            .padding(22.dp)
+    ) {
+        Text(
+            text = "SUA ESTRADA",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 1.6.sp,
+            color = WarmEmber
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(
+                text = formatNumber(totalDistanceKm),
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = WarmInk,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = "km",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = WarmMuted,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
+        Text(
+            text = if (completedTrips == 0L) {
+                "Sua quilometragem começa na primeira viagem concluída."
+            } else {
+                "percorridos em viagens concluídas"
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = WarmInkSoft
+        )
+
+        formatWorldLaps(worldLaps)?.let { text ->
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = text,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(WarmEmberTint)
+                    .padding(
+                        horizontal = 12.dp,
+                        vertical = 6.dp
+                    ),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = WarmEmberDeep
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(WarmHairline)
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            StatColumn(
+                icon = Icons.Outlined.Speed,
+                value = "${formatNumber(distanceThisYearKm)} km",
+                label = "Este ano",
+                modifier = Modifier.weight(1.4f)
+            )
+
+            StatColumn(
+                icon = Icons.Outlined.Route,
+                value = NumberFormat
+                    .getIntegerInstance(Locale.forLanguageTag("pt-BR"))
+                    .format(completedTrips),
+                label = "Viagens",
+                modifier = Modifier.weight(1f)
+            )
+
+            StatColumn(
+                icon = Icons.Outlined.TwoWheeler,
+                value = motorcycleCount.toString(),
+                label = if (motorcycleCount == 1L) "Moto" else "Motos",
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
 
 @Composable
-private fun TripPill(
-    text: String,
+private fun StatColumn(
     icon: ImageVector,
-    containerColor: Color,
-    contentColor: Color
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(containerColor)
-            .padding(
-                horizontal = 10.dp,
-                vertical = 5.dp
-            ),
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = modifier
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(14.dp),
-            tint = contentColor
-        )
-
-        Spacer(modifier = Modifier.width(6.dp))
-
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = contentColor
-        )
-    }
-}
-
-@Composable
-private fun RoutePoint(
-    text: String
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.Filled.LocationOn,
-            contentDescription = null,
             modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.secondary
+            tint = WarmMuted
         )
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = text,
+            text = value,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
+            fontWeight = FontWeight.ExtraBold,
+            color = WarmInk,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = WarmMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
 }
 
-@Composable
-private fun ChevronCircle() {
-    Box(
-        modifier = Modifier
-            .size(32.dp)
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.4f),
-                shape = CircleShape
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "›",
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White
-        )
-    }
-}
+// ---------------------------------------------------------------------------
+// Last trip
+// ---------------------------------------------------------------------------
 
 @Composable
-private fun TripFact(
-    icon: ImageVector,
-    value: String,
-    caption: String,
-    modifier: Modifier = Modifier
+private fun SectionHeader(
+    title: String,
+    actionLabel: String,
+    onActionClick: () -> Unit
 ) {
     Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.Top
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.secondary
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold,
+            color = WarmInk
         )
 
-        Spacer(modifier = Modifier.width(6.dp))
-
-        Column {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .clickable(
+                    role = Role.Button,
+                    onClick = onActionClick
+                )
+                .padding(
+                    start = 10.dp,
+                    top = 6.dp,
+                    bottom = 6.dp
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                text = value,
-                style = MaterialTheme.typography.bodySmall,
+                text = actionLabel,
+                style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = WarmEmber
             )
 
-            Text(
-                text = caption,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f)
+            Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = WarmEmber
             )
         }
     }
 }
 
 @Composable
-private fun DarkDivider() {
-    Box(
+private fun LastTripCard(
+    trip: TripSummaryDTO,
+    onClick: () -> Unit
+) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(1.dp)
-            .background(Color.White.copy(alpha = 0.12f))
-    )
-}
-
-@Composable
-private fun NoMotorcycleCard(
-    onAddMotorcycleClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary.copy(
-                alpha = 0.06f
+            .clip(RoundedCornerShape(24.dp))
+            .background(WarmCard)
+            .border(
+                border = BorderStroke(1.dp, WarmHairline),
+                shape = RoundedCornerShape(24.dp)
             )
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 0.dp
-        )
+            .clickable(
+                onClickLabel = "Abrir última viagem",
+                role = Role.Button,
+                onClick = onClick
+            )
+            .padding(20.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-
-            GarageIllustration(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(110.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Sua garagem está vazia",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Para começar a planejar suas viagens, primeiro cadastre a sua moto.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            HomePrimaryButton(
-                text = "Cadastrar moto",
-                onClick = onAddMotorcycleClick
-            )
-        }
-    }
-}
-
-@Composable
-private fun NoUpcomingTripCard(
-    onTripsClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 0.dp
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
-
             Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(WarmSuccessTint)
+                    .padding(
+                        horizontal = 10.dp,
+                        vertical = 5.dp
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = WarmSuccess
+                )
 
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = "Planeje sua próxima rota",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                Spacer(modifier = Modifier.width(6.dp))
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "Que tal preparar sua próxima viagem? Ou registrar uma viagem que você já fez?",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                MountainIllustration(
-                    modifier = Modifier.size(
-                        width = 88.dp,
-                        height = 56.dp
-                    )
+                Text(
+                    text = "CONCLUÍDA",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp,
+                    color = WarmSuccess
                 )
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            HomePrimaryButton(
-                text = "Planejar viagem",
-                onClick = onTripsClick
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            HomeSoftButton(
-                text = "Registrar viagem feita",
-                icon = Icons.Outlined.Route,
-                onClick = onTripsClick
-            )
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        RouteTimeline(
+            origin = trip.origin,
+            destination = trip.destination,
+            textColor = WarmInk,
+            accentColor = WarmEmber,
+            lineColor = WarmHairline
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TripFacts(
+            distance = formatDistance(trip.distanceKm),
+            terrain = formatTerrain(trip.terrain),
+            date = formatTripDate(trip.tripDate),
+            motorcycleName = "${trip.motorcycle.brand} ${trip.motorcycle.model}",
+            chipColor = WarmCanvas,
+            contentColor = WarmInkSoft
+        )
     }
 }
+
+// ---------------------------------------------------------------------------
+// No-motorcycle benefits
+// ---------------------------------------------------------------------------
 
 @Composable
 private fun NoMotorcycleBenefits() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 0.dp
-        )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(WarmCard)
+            .border(
+                border = BorderStroke(1.dp, WarmHairline),
+                shape = RoundedCornerShape(24.dp)
+            )
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
+        Text(
+            text = "Por que cadastrar sua moto?",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.ExtraBold,
+            color = WarmInk
+        )
 
-            Text(
-                text = "Por que cadastrar sua moto?",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+        BenefitRow(
+            icon = Icons.Outlined.Route,
+            text = "Planeje viagens com mais precisão"
+        )
 
-            Spacer(modifier = Modifier.height(16.dp))
+        BenefitRow(
+            icon = Icons.Outlined.CalendarMonth,
+            text = "Acompanhe o histórico de cada moto"
+        )
 
-            BenefitRow(
-                icon = Icons.Outlined.Route,
-                text = "Planeje viagens com mais precisão"
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            BenefitRow(
-                icon = Icons.Outlined.CalendarMonth,
-                text = "Acompanhe o histórico de cada moto"
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            BenefitRow(
-                icon = Icons.Filled.LocationOn,
-                text = "Tenha uma experiência personalizada"
-            )
-        }
+        BenefitRow(
+            icon = Icons.Filled.LocationOn,
+            text = "Tenha uma experiência personalizada"
+        )
     }
 }
 
@@ -863,19 +1025,26 @@ private fun BenefitRow(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(22.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(WarmEmberTint, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = WarmEmber
+            )
+        }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(14.dp))
 
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            color = WarmInk
         )
     }
 }
@@ -884,323 +1053,7 @@ private fun BenefitRow(
 // Buttons
 // ---------------------------------------------------------------------------
 
-@Composable
-private fun HomePrimaryButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 52.dp),
-        shape = RoundedCornerShape(50)
-    ) {
-        Box(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = text,
-                modifier = Modifier.align(Alignment.Center),
-                fontWeight = FontWeight.SemiBold
-            )
 
-            Text(
-                text = "›",
-                modifier = Modifier.align(Alignment.CenterEnd),
-                style = MaterialTheme.typography.titleLarge
-            )
-        }
-    }
-}
-
-@Composable
-private fun HomeSoftButton(
-    text: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val brandColor = MaterialTheme.colorScheme.primary
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(brandColor.copy(alpha = 0.08f))
-            .clickable(onClick = onClick)
-            .padding(
-                horizontal = 16.dp,
-                vertical = 14.dp
-            ),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(22.dp),
-            tint = brandColor
-        )
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Text(
-            text = text,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = brandColor
-        )
-
-        Text(
-            text = "›",
-            style = MaterialTheme.typography.titleLarge,
-            color = brandColor
-        )
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Summary and last trip
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun HomeSummarySection(
-    totalDistanceKm: Double,
-    completedTrips: Long,
-    distanceThisYearKm: Double
-) {
-    Column {
-
-        Text(
-            text = "Resumo das suas viagens",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            SummaryMetricCard(
-                icon = Icons.Outlined.Speed,
-                value = formatDistance(totalDistanceKm),
-                label = "Distância total",
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            )
-
-            SummaryMetricCard(
-                icon = Icons.Outlined.Route,
-                value = completedTrips.toString(),
-                label = "Viagens concluídas",
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            )
-
-            SummaryMetricCard(
-                icon = Icons.Outlined.SignalCellularAlt,
-                value = formatDistance(distanceThisYearKm),
-                label = "Km neste ano",
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            )
-        }
-    }
-}
-
-@Composable
-private fun SummaryMetricCard(
-    icon: ImageVector,
-    value: String,
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 0.dp
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    horizontal = 8.dp,
-                    vertical = 14.dp
-                ),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(26.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
-private fun LastCompletedTripSection(
-    trip: TripSummaryDTO,
-    onClick: () -> Unit
-) {
-    Column {
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Última viagem concluída",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Text(
-                text = "›",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        LastCompletedTripCard(
-            trip = trip,
-            onClick = onClick
-        )
-    }
-}
-
-@Composable
-private fun LastCompletedTripCard(
-    trip: TripSummaryDTO,
-    onClick: () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 0.dp
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-
-            // Placeholder for the trip photo shown in the mockup
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF0F3B45),
-                                MaterialTheme.colorScheme.primary
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Terrain,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = Color.White
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-
-                Text(
-                    text = "${trip.origin} → ${trip.destination}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = buildString {
-                        append(formatTripDate(trip.tripDate))
-                        append("  •  ")
-                        append(formatDistance(trip.distanceKm))
-                        append("  •  ")
-                        append(formatTerrain(trip.terrain))
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "${trip.motorcycle.brand} ${trip.motorcycle.model}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Loading and error
@@ -1213,72 +1066,52 @@ private fun HomeLoading(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(
                 horizontal = 20.dp,
                 vertical = 20.dp
             )
     ) {
+        HomeHeader(subtitle = "Preparando a sua estrada...")
 
-        HomeHeader()
+        Spacer(modifier = Modifier.height(20.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        LoadingBlock(
+        ShimmerBlock(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp),
-            cornerRadius = 24.dp
+                .height(300.dp),
+            cornerRadius = 28.dp
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        LoadingBlock(
-            modifier = Modifier
-                .width(180.dp)
-                .height(20.dp)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(104.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                .height(72.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            repeat(3) {
-                LoadingBlock(
+            repeat(2) {
+                ShimmerBlock(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
-                    cornerRadius = 18.dp
+                    cornerRadius = 20.dp
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-        LoadingBlock(
+        ShimmerBlock(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(96.dp),
-            cornerRadius = 18.dp
+                .height(220.dp),
+            cornerRadius = 28.dp
         )
     }
 }
 
-@Composable
-private fun LoadingBlock(
-    modifier: Modifier = Modifier,
-    cornerRadius: Dp = 8.dp
-) {
-    Box(
-        modifier = modifier.background(
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-            shape = RoundedCornerShape(cornerRadius)
-        )
-    )
-}
 
 @Composable
 private fun HomeError(
@@ -1296,31 +1129,26 @@ private fun HomeError(
             )
     ) {
 
-        HomeHeader()
+        HomeHeader(subtitle = "Algo atrapalhou o caminho.")
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 48.dp),
+                .padding(top = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
             Box(
                 modifier = Modifier
-                    .size(120.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.primary.copy(
-                            alpha = 0.08f
-                        ),
-                        shape = CircleShape
-                    ),
+                    .size(112.dp)
+                    .background(WarmEmberTint, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Outlined.WifiOff,
                     contentDescription = null,
-                    modifier = Modifier.size(56.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    modifier = Modifier.size(52.dp),
+                    tint = WarmEmber
                 )
             }
 
@@ -1329,8 +1157,8 @@ private fun HomeError(
             Text(
                 text = "Não foi possível carregar sua Home",
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.ExtraBold,
+                color = WarmInk,
                 textAlign = TextAlign.Center
             )
 
@@ -1339,7 +1167,7 @@ private fun HomeError(
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = WarmInkSoft,
                 textAlign = TextAlign.Center
             )
 
@@ -1349,8 +1177,12 @@ private fun HomeError(
                 onClick = onRetryClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 52.dp),
-                shape = RoundedCornerShape(50)
+                    .heightIn(min = 54.dp),
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = WarmInk,
+                    contentColor = Color.White
+                )
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Refresh,
@@ -1362,7 +1194,7 @@ private fun HomeError(
 
                 Text(
                     text = "Tentar novamente",
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -1370,149 +1202,50 @@ private fun HomeError(
 }
 
 // ---------------------------------------------------------------------------
-// Illustrations (drawn with Canvas, no image assets needed)
+// Illustrations
 // ---------------------------------------------------------------------------
 
-@Composable
-private fun MountainIllustration(
-    modifier: Modifier = Modifier
-) {
-    val frontColor = MaterialTheme.colorScheme.primary
 
-    Canvas(modifier = modifier) {
-        // Back mountain
-        drawPolygon(
-            color = Color(0xFF1F3A4D),
-            0.05f to 1f,
-            0.40f to 0.12f,
-            0.75f to 1f
-        )
-        // Back mountain snowcap
-        drawPolygon(
-            color = Color.White,
-            0.40f to 0.12f,
-            0.30f to 0.38f,
-            0.35f to 0.33f,
-            0.40f to 0.40f,
-            0.45f to 0.33f,
-            0.50f to 0.38f
-        )
-        // Front mountain
-        drawPolygon(
-            color = frontColor,
-            0.35f to 1f,
-            0.72f to 0.30f,
-            1.00f to 1f
-        )
-        // Front mountain snowcap
-        drawPolygon(
-            color = Color.White,
-            0.72f to 0.30f,
-            0.614f to 0.50f,
-            0.67f to 0.45f,
-            0.72f to 0.52f,
-            0.77f to 0.45f,
-            0.80f to 0.50f
-        )
-    }
-}
 
-private fun DrawScope.drawPolygon(
-    color: Color,
-    vararg points: Pair<Float, Float>
-) {
-    val width = size.width
-    val height = size.height
 
-    val path = Path().apply {
-        points.forEachIndexed { index, point ->
-            val x = width * point.first
-            val y = height * point.second
-
-            if (index == 0) moveTo(x, y) else lineTo(x, y)
-        }
-        close()
-    }
-
-    drawPath(
-        path = path,
-        color = color
-    )
-}
-
-@Composable
-private fun GarageIllustration(
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        MountainIllustration(
-            modifier = Modifier
-                .fillMaxWidth(0.7f)
-                .height(90.dp)
-        )
-
-        Icon(
-            imageVector = Icons.Outlined.TwoWheeler,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Formatters
 // ---------------------------------------------------------------------------
 
-private fun formatTripDate(
-    date: String
-): String {
-    return runCatching {
-        LocalDate
-            .parse(date)
-            .format(
-                DateTimeFormatter.ofPattern(
-                    "d MMM yyyy",
-                    Locale.forLanguageTag("pt-BR")
-                )
-            )
-            .replace(".", "")
-    }.getOrDefault(date)
-}
+private fun greetingForNow(): String {
+    val hour = LocalTime.now().hour
 
-private fun formatDaysUntil(
-    daysUntil: Long
-): String {
-    return when (daysUntil) {
-        0L -> "É hoje!"
-        1L -> "Amanhã"
-        else -> "Daqui a $daysUntil dias"
+    return when {
+        hour < 5 -> "Boa madrugada"
+        hour < 12 -> "Bom dia"
+        hour < 18 -> "Boa tarde"
+        else -> "Boa noite"
     }
 }
 
-private fun formatDistance(
-    distanceKm: Double
-): String {
-    val formatter = NumberFormat.getNumberInstance(
-        Locale.forLanguageTag("pt-BR")
-    ).apply {
-        minimumFractionDigits = 0
-        maximumFractionDigits = 1
-    }
 
-    return "${formatter.format(distanceKm)} km"
+
+
+private fun formatWorldLaps(
+    laps: Double
+): String? {
+    return when {
+        laps < 0.01 -> null
+
+        laps < 1.0 ->
+            "${(laps * 100).toInt()}% de uma volta ao mundo"
+
+        else -> {
+            val formatter = NumberFormat.getNumberInstance(
+                Locale.forLanguageTag("pt-BR")
+            ).apply {
+                minimumFractionDigits = 1
+                maximumFractionDigits = 1
+            }
+
+            "${formatter.format(laps)} voltas ao mundo"
+        }
+    }
 }
 
-private fun formatTerrain(
-    terrain: String
-): String {
-    return when (terrain) {
-        "ASPHALT" -> "Asfalto"
-        "MIXED" -> "Misto"
-        "OFF_ROAD" -> "Off-road"
-        else -> terrain
-    }
-}
