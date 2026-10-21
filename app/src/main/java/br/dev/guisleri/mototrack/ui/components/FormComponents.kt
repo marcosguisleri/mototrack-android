@@ -1,5 +1,7 @@
 package br.dev.guisleri.mototrack.ui.components
 
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -121,7 +123,10 @@ internal fun WarmTextField(
     enabled: Boolean,
     keyboardOptions: KeyboardOptions,
     modifier: Modifier = Modifier,
-    suffix: String? = null
+    suffix: String? = null,
+    trailingIcon: (@Composable () -> Unit)? = null,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    keyboardActions: KeyboardActions = KeyboardActions.Default
 ) {
     OutlinedTextField(
         value = value,
@@ -129,6 +134,9 @@ internal fun WarmTextField(
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
         singleLine = true,
+        visualTransformation = visualTransformation,
+        keyboardActions = keyboardActions,
+        trailingIcon = trailingIcon,
         label = { Text(text = label) },
         leadingIcon = {
             Icon(
