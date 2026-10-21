@@ -11,6 +11,7 @@ sealed interface MotorcyclesUiState {
     data class Success(
         val motorcycles: List<MotorcycleResponseDTO>,
         val selectedMotorcycleId: Long,
+        val defaultMotorcycleId: Long? = null,
         val statisticsUiState: MotorcycleStatisticsUiState
     ) : MotorcyclesUiState
 

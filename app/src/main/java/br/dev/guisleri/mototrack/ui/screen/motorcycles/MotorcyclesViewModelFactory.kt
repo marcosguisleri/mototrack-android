@@ -2,10 +2,12 @@ package br.dev.guisleri.mototrack.ui.screen.motorcycles
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import br.dev.guisleri.mototrack.data.local.MotorcyclePreferences
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 
 class MotorcyclesViewModelFactory(
-    private val motorcycleRepository: MotorcycleRepository
+    private val motorcycleRepository: MotorcycleRepository,
+    private val motorcyclePreferences: MotorcyclePreferences
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -14,7 +16,8 @@ class MotorcyclesViewModelFactory(
     ): T {
         if (modelClass.isAssignableFrom(MotorcyclesViewModel::class.java)) {
             return MotorcyclesViewModel(
-                motorcycleRepository = motorcycleRepository
+                motorcycleRepository = motorcycleRepository,
+                motorcyclePreferences = motorcyclePreferences
             ) as T
         }
 

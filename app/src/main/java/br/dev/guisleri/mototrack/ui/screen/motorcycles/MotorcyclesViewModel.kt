@@ -2,7 +2,9 @@ package br.dev.guisleri.mototrack.ui.screen.motorcycles
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import br.dev.guisleri.mototrack.data.local.MotorcyclePreferences
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +14,8 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 
 class MotorcyclesViewModel(
-    private val motorcycleRepository: MotorcycleRepository
+    private val motorcycleRepository: MotorcycleRepository,
+    private val motorcyclePreferences: MotorcyclePreferences
 ) : ViewModel() {
 
     private val _uiState =
@@ -49,15 +52,25 @@ class MotorcyclesViewModel(
                     return@launch
                 }
 
+                // Losing the preference must never break the screen.
+                val defaultMotorcycleId =
+                    runCatching { motorcyclePreferences.defaultMotorcycleId.first() }
+                        .getOrNull()
+                        ?.takeIf { defaultId ->
+                            motorcycles.any { it.id == defaultId }
+                        }
+
                 val selectedMotorcycleId =
                     previouslySelectedId?.takeIf { selectedId ->
                         motorcycles.any { it.id == selectedId }
-                    } ?: motorcycles.first().id
+                    } ?: defaultMotorcycleId
+                    ?: motorcycles.first().id
 
                 _uiState.value =
                     MotorcyclesUiState.Success(
                         motorcycles = motorcycles,
                         selectedMotorcycleId = selectedMotorcycleId,
+                        defaultMotorcycleId = defaultMotorcycleId,
                         statisticsUiState =
                             MotorcycleStatisticsUiState.Loading
                     )
@@ -116,6 +129,34 @@ class MotorcyclesViewModel(
         loadMotorcycleStatistics(
             motorcycleId = motorcycleId
         )
+    }
+
+    fun setDefaultMotorcycle(
+        motorcycleId: Long
+    ) {
+        val currentState = _uiState.value as? MotorcyclesUiState.Success
+            ?: return
+
+        if (
+            currentState.defaultMotorcycleId == motorcycleId ||
+            currentState.motorcycles.none { it.id == motorcycleId }
+        ) {
+            return
+        }
+
+        _uiState.value = currentState.copy(
+            defaultMotorcycleId = motorcycleId
+        )
+
+        viewModelScope.launch {
+            try {
+                motorcyclePreferences.setDefaultMotorcycleId(motorcycleId)
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                // Keep the choice for this session even if it could not be saved.
+            }
+        }
     }
 
     fun retrySelectedStatistics() {
