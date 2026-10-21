@@ -14,8 +14,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -42,6 +44,7 @@ import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesUiState
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
 import br.dev.guisleri.mototrack.ui.screen.profile.ProfileScreen
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsScreen
+import br.dev.guisleri.mototrack.ui.screen.trips.TripsUiState
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.create.TripCreateMode
 import br.dev.guisleri.mototrack.ui.screen.trips.create.TripCreateScreen
@@ -105,12 +108,42 @@ fun MainScreen(
         .uiState
         .collectAsStateWithLifecycle()
 
+    val tripsUiState by tripsViewModel
+        .uiState
+        .collectAsStateWithLifecycle()
+
+    // The navigation entries below are created once and keep their lambdas, so
+    // anything they read from here must be observable state, never a plain value.
+
+    // The rider's default motorcycle (or the first one) shown on Home.
+    val homeMotorcycle by remember {
+        derivedStateOf {
+            (motorcyclesUiState as? MotorcyclesUiState.Success)?.let { state ->
+                state.motorcycles.firstOrNull { it.id == state.defaultMotorcycleId }
+                    ?: state.motorcycles.firstOrNull()
+            }
+        }
+    }
+
+    val homeTrips by remember {
+        derivedStateOf {
+            when (val state = tripsUiState) {
+                is TripsUiState.Success -> state.trips
+                TripsUiState.Empty -> emptyList()
+                else -> null
+            }
+        }
+    }
+
     // Unknown (loading/error) counts as "has motorcycles": the create screen
     // handles an empty garage on its own, so we only block when we are sure.
-    val hasNoMotorcycles =
-        motorcyclesUiState == MotorcyclesUiState.Empty ||
-                (homeUiState as? HomeUiState.Success)
-                    ?.home?.motorcycleCount == 0L
+    val hasNoMotorcycles by remember {
+        derivedStateOf {
+            motorcyclesUiState == MotorcyclesUiState.Empty ||
+                    (homeUiState as? HomeUiState.Success)
+                        ?.home?.motorcycleCount == 0L
+        }
+    }
 
     var showNoMotorcycleDialog by rememberSaveable {
         mutableStateOf(false)
@@ -218,6 +251,11 @@ fun MainScreen(
                                 onRegisterCompletedTripClick = {
                                     openTripCreate(true)
                                 },
+                                motorcycle = homeMotorcycle,
+                                trips = homeTrips,
+                                onGarageClick = {
+                                    navigateTo(MainDestination.MOTORCYCLES)
+                                },
                                 modifier = Modifier
                                     .background(WarmCanvas)
                                     .padding(innerPadding)
@@ -226,10 +264,6 @@ fun MainScreen(
 
                     MainDestination.TRIPS -> {
                         NavEntry(key = destination) {
-
-                            val tripsUiState by tripsViewModel
-                                .uiState
-                                .collectAsStateWithLifecycle()
 
                             val isTripsRefreshing by tripsViewModel
                                 .isRefreshing

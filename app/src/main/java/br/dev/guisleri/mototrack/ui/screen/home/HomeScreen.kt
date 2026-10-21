@@ -59,6 +59,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO
+import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.data.model.home.HomeResponseDTO
 import br.dev.guisleri.mototrack.data.model.home.NextTripDTO
 import br.dev.guisleri.mototrack.data.model.home.TripSummaryDTO
@@ -97,8 +99,6 @@ import java.text.NumberFormat
 import java.time.LocalTime
 import java.util.Locale
 
-private const val EARTH_CIRCUMFERENCE_KM = 40_075.0
-
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -114,7 +114,10 @@ fun HomeScreen(
     onTripClick: (Long) -> Unit,
     onPlanTripClick: () -> Unit,
     onRegisterCompletedTripClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    motorcycle: MotorcycleResponseDTO? = null,
+    trips: List<TripResponseDTO>? = null,
+    onGarageClick: () -> Unit = {}
 ) {
     when (uiState) {
 
@@ -138,7 +141,11 @@ fun HomeScreen(
                     onTripsClick = onTripsClick,
                     onTripClick = onTripClick,
                     onPlanTripClick = onPlanTripClick,
-                    onRegisterCompletedTripClick = onRegisterCompletedTripClick
+                    onRegisterCompletedTripClick = onRegisterCompletedTripClick,
+                    motorcycle = motorcycle,
+                    trips = trips,
+                    userName = uiState.userName,
+                    onGarageClick = onGarageClick
                 )
             }
         }
@@ -163,6 +170,10 @@ private fun HomeContent(
     onTripClick: (Long) -> Unit,
     onPlanTripClick: () -> Unit,
     onRegisterCompletedTripClick: () -> Unit,
+    motorcycle: MotorcycleResponseDTO?,
+    trips: List<TripResponseDTO>?,
+    userName: String?,
+    onGarageClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isFirstTrip =
@@ -180,25 +191,44 @@ private fun HomeContent(
             )
     ) {
 
-        HomeHeader(
-            subtitle = when (highlight) {
-                is HomeHighlightState.InProgress ->
-                    "Boa viagem! Siga firme na estrada."
+        val subtitle = when (highlight) {
+            is HomeHighlightState.InProgress ->
+                "Boa viagem! Siga firme na estrada."
 
-                HomeHighlightState.NoMotorcycle ->
-                    "Vamos montar a sua garagem?"
+            HomeHighlightState.NoMotorcycle ->
+                "Vamos montar a sua garagem?"
 
-                is HomeHighlightState.UpcomingTrip ->
-                    "Falta pouco para a próxima aventura."
+            is HomeHighlightState.UpcomingTrip ->
+                "Falta pouco para a próxima aventura."
 
-                HomeHighlightState.NoUpcomingTrip ->
-                    if (isFirstTrip) {
-                        "Sua primeira viagem está te esperando."
-                    } else {
-                        "Para onde vamos agora?"
-                    }
-            }
-        )
+            HomeHighlightState.NoUpcomingTrip ->
+                if (isFirstTrip) {
+                    "Sua primeira viagem está te esperando."
+                } else {
+                    "Para onde vamos agora?"
+                }
+        }
+
+        // Beside the motorcycle there is room for a single short line only.
+        val shortSubtitle = when (highlight) {
+            is HomeHighlightState.InProgress -> "Boa viagem!"
+            is HomeHighlightState.UpcomingTrip -> "Falta pouco!"
+            else -> if (isFirstTrip) "Vamos viajar?" else "Para onde agora?"
+        }
+
+        if (motorcycle != null && home.motorcycleCount > 0) {
+            HomeTopSection(
+                subtitle = shortSubtitle,
+                userName = userName,
+                motorcycle = motorcycle,
+                onGarageClick = onGarageClick
+            )
+        } else {
+            HomeHeader(
+                subtitle = subtitle,
+                userName = userName
+            )
+        }
 
         refreshErrorMessage?.let { message ->
             Spacer(modifier = Modifier.height(12.dp))
@@ -272,7 +302,10 @@ private fun HomeContent(
                 totalDistanceKm = home.totalCompletedDistanceKm,
                 distanceThisYearKm = home.distanceThisYearKm,
                 completedTrips = home.completedTrips,
-                motorcycleCount = home.motorcycleCount
+                motorcycleCount = home.motorcycleCount,
+                monthlyKm = trips?.let {
+                    monthlyCompletedDistanceKm(it, java.time.LocalDate.now().year)
+                }
             )
         }
 
@@ -303,10 +336,9 @@ private fun HomeContent(
 
 @Composable
 private fun HomeHeader(
-    subtitle: String
+    subtitle: String,
+    userName: String? = null
 ) {
-    val greeting = remember { greetingForNow() }
-
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -326,12 +358,7 @@ private fun HomeHeader(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        Text(
-            text = greeting,
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.ExtraBold,
-            color = WarmInk
-        )
+        HomeGreeting(userName = userName)
 
         Spacer(modifier = Modifier.height(4.dp))
 
@@ -682,166 +709,7 @@ private fun QuickActionTile(
 // Road stats
 // ---------------------------------------------------------------------------
 
-@Composable
-private fun RoadStatsCard(
-    totalDistanceKm: Double,
-    distanceThisYearKm: Double,
-    completedTrips: Long,
-    motorcycleCount: Long
-) {
-    val worldLaps = totalDistanceKm / EARTH_CIRCUMFERENCE_KM
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
-            .background(WarmCard)
-            .border(
-                border = BorderStroke(1.dp, WarmHairline),
-                shape = RoundedCornerShape(28.dp)
-            )
-            .padding(22.dp)
-    ) {
-        Text(
-            text = "SUA ESTRADA",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 1.6.sp,
-            color = WarmEmber
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        Row(
-            verticalAlignment = Alignment.Bottom
-        ) {
-            Text(
-                text = formatNumber(totalDistanceKm),
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.ExtraBold,
-                color = WarmInk,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Text(
-                text = "km",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = WarmMuted,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
-
-        Text(
-            text = if (completedTrips == 0L) {
-                "Sua quilometragem começa na primeira viagem concluída."
-            } else {
-                "percorridos em viagens concluídas"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = WarmInkSoft
-        )
-
-        formatWorldLaps(worldLaps)?.let { text ->
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = text,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(WarmEmberTint)
-                    .padding(
-                        horizontal = 12.dp,
-                        vertical = 6.dp
-                    ),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = WarmEmberDeep
-            )
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(WarmHairline)
-        )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            StatColumn(
-                icon = Icons.Outlined.Speed,
-                value = "${formatNumber(distanceThisYearKm)} km",
-                label = "Este ano",
-                modifier = Modifier.weight(1.4f)
-            )
-
-            StatColumn(
-                icon = Icons.Outlined.Route,
-                value = NumberFormat
-                    .getIntegerInstance(Locale.forLanguageTag("pt-BR"))
-                    .format(completedTrips),
-                label = "Viagens",
-                modifier = Modifier.weight(1f)
-            )
-
-            StatColumn(
-                icon = Icons.Outlined.TwoWheeler,
-                value = motorcycleCount.toString(),
-                label = if (motorcycleCount == 1L) "Moto" else "Motos",
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatColumn(
-    icon: ImageVector,
-    value: String,
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = WarmMuted
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = WarmInk,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = WarmMuted,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Last trip
@@ -1213,7 +1081,7 @@ private fun HomeError(
 // Formatters
 // ---------------------------------------------------------------------------
 
-private fun greetingForNow(): String {
+internal fun greetingForNow(): String {
     val hour = LocalTime.now().hour
 
     return when {
@@ -1227,25 +1095,4 @@ private fun greetingForNow(): String {
 
 
 
-private fun formatWorldLaps(
-    laps: Double
-): String? {
-    return when {
-        laps < 0.01 -> null
-
-        laps < 1.0 ->
-            "${(laps * 100).toInt()}% de uma volta ao mundo"
-
-        else -> {
-            val formatter = NumberFormat.getNumberInstance(
-                Locale.forLanguageTag("pt-BR")
-            ).apply {
-                minimumFractionDigits = 1
-                maximumFractionDigits = 1
-            }
-
-            "${formatter.format(laps)} voltas ao mundo"
-        }
-    }
-}
 
