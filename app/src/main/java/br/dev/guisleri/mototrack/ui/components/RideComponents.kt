@@ -481,52 +481,6 @@ internal fun SunriseIllustration(
     }
 }
 
-@Composable
-internal fun GarageIllustration(
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.matchParentSize()) {
-            val w = size.width
-            val h = size.height
-
-            drawPolygon(
-                color = WarmEmberTint,
-                points = listOf(
-                    Offset(w * 0.04f, h),
-                    Offset(w * 0.04f, h * 0.38f),
-                    Offset(w * 0.5f, h * 0.04f),
-                    Offset(w * 0.96f, h * 0.38f),
-                    Offset(w * 0.96f, h)
-                )
-            )
-
-            for (i in 0..3) {
-                val y = h * (0.52f + i * 0.12f)
-                drawLine(
-                    color = WarmEmber.copy(alpha = 0.3f),
-                    start = Offset(w * 0.22f, y),
-                    end = Offset(w * 0.78f, y),
-                    strokeWidth = 2.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-            }
-        }
-
-        Icon(
-            imageVector = Icons.Outlined.TwoWheeler,
-            contentDescription = null,
-            modifier = Modifier
-                .size(52.dp)
-                .padding(top = 14.dp),
-            tint = WarmInk
-        )
-    }
-}
-
 internal fun DrawScope.drawPolygon(
     color: Color,
     points: List<Offset>
@@ -632,7 +586,7 @@ internal fun NoMotorcycleHero(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         GarageIllustration(
-            modifier = Modifier.size(width = 150.dp, height = 110.dp)
+            modifier = Modifier.size(width = 200.dp, height = 150.dp)
         )
 
         Spacer(modifier = Modifier.height(16.dp))
