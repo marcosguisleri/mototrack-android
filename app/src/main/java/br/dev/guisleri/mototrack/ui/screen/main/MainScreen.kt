@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -34,6 +35,9 @@ import androidx.navigation3.ui.NavDisplay
 import br.dev.guisleri.mototrack.data.local.MotorcyclePreferences
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 import br.dev.guisleri.mototrack.data.repository.TripRepository
+import br.dev.guisleri.mototrack.notification.TripReminderScheduler
+import br.dev.guisleri.mototrack.notification.canPostNotifications
+import br.dev.guisleri.mototrack.notification.planTripReminders
 import br.dev.guisleri.mototrack.ui.navigation.MainDestination
 import br.dev.guisleri.mototrack.ui.navigation.MotoTrackBottomBar
 import br.dev.guisleri.mototrack.ui.navigation.TripCreateDestination
@@ -66,6 +70,7 @@ fun MainScreen(
     motorcyclesViewModel: MotorcyclesViewModel,
     tripsViewModel: TripsViewModel,
     profileViewModel: ProfileViewModel,
+    reminderScheduler: TripReminderScheduler,
     tripRepository: TripRepository,
     motorcycleRepository: MotorcycleRepository,
     motorcyclePreferences: MotorcyclePreferences,
@@ -143,6 +148,19 @@ fun MainScreen(
                 TripsUiState.Empty -> emptyList()
                 else -> null
             }
+        }
+    }
+
+    // Trip reminders follow the planned trips, so they are re-planned whenever the trips change.
+    val context = LocalContext.current
+
+    var remindersEnabled by remember {
+        mutableStateOf(reminderScheduler.isEnabled && canPostNotifications(context))
+    }
+
+    LaunchedEffect(homeTrips, remindersEnabled) {
+        homeTrips?.let { trips ->
+            reminderScheduler.sync(planTripReminders(trips, System.currentTimeMillis()))
         }
     }
 
@@ -511,6 +529,11 @@ fun MainScreen(
                                 trips = homeTrips,
                                 motorcycleCount = garageSize,
                                 onRetryUserClick = profileViewModel::loadUser,
+                                remindersEnabled = remindersEnabled,
+                                onRemindersChange = { enabled ->
+                                    reminderScheduler.isEnabled = enabled
+                                    remindersEnabled = enabled
+                                },
                                 isLoggingOut = isLoggingOut,
                                 onLogoutClick = onLogoutClick,
                                 modifier = Modifier

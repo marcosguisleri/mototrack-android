@@ -1,5 +1,9 @@
 package br.dev.guisleri.mototrack.ui.screen.profile
 
+import android.Manifest
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +28,7 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Speed
@@ -34,6 +39,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,12 +53,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
+import br.dev.guisleri.mototrack.notification.canPostNotifications
 import br.dev.guisleri.mototrack.ui.components.RideOutlinedButton
 import br.dev.guisleri.mototrack.ui.components.ShimmerBlock
 import br.dev.guisleri.mototrack.ui.components.WarmDialog
@@ -76,6 +85,8 @@ fun ProfileScreen(
     trips: List<TripResponseDTO>?,
     motorcycleCount: Int?,
     onRetryUserClick: () -> Unit,
+    remindersEnabled: Boolean,
+    onRemindersChange: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier,
     isLoggingOut: Boolean = false
@@ -132,6 +143,13 @@ fun ProfileScreen(
         SectionTitle(title = "Destinos favoritos")
 
         FavoriteDestinationsCard(stats)
+
+        SectionTitle(title = "Preferências")
+
+        RemindersCard(
+            enabled = remindersEnabled,
+            onChange = onRemindersChange
+        )
 
         RideOutlinedButton(
             text = if (isLoggingOut) "Saindo..." else "Sair da conta",
@@ -558,6 +576,87 @@ private fun DestinationRow(
                 text = "${visitsLabel(destination.visits)} · ${formatDistance(destination.totalKm)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = WarmMuted
+            )
+        }
+    }
+}
+
+@Composable
+private fun RemindersCard(
+    enabled: Boolean,
+    onChange: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            onChange(true)
+        } else {
+            Toast.makeText(
+                context,
+                "Permita as notificações do MotoTrack nas configurações do aparelho.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    WarmSurface(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(WarmEmberTint),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.NotificationsNone,
+                    contentDescription = null,
+                    tint = WarmEmber,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Lembretes de viagem",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = WarmInk
+                )
+
+                Text(
+                    text = "Um aviso às 18h na véspera e outro às 7h30 no dia das viagens planejadas.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WarmMuted
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Switch(
+                checked = enabled,
+                onCheckedChange = { wanted ->
+                    if (wanted && !canPostNotifications(context)) {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        onChange(wanted)
+                    }
+                },
+                colors = SwitchDefaults.colors(
+                    checkedTrackColor = WarmEmber,
+                    checkedThumbColor = Color.White,
+                    uncheckedTrackColor = WarmSkeleton,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedBorderColor = Color.Transparent
+                )
             )
         }
     }

@@ -51,6 +51,7 @@ import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 import br.dev.guisleri.mototrack.data.remote.user.UserApiService
 import br.dev.guisleri.mototrack.data.repository.TripRepository
 import br.dev.guisleri.mototrack.data.repository.UserRepository
+import br.dev.guisleri.mototrack.notification.TripReminderScheduler
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
 import br.dev.guisleri.mototrack.ui.screen.profile.ProfileViewModel
 import br.dev.guisleri.mototrack.ui.screen.profile.ProfileViewModelFactory
@@ -232,6 +233,8 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
         )
     }
 
+    val reminderScheduler = remember { TripReminderScheduler(context) }
+
     val coroutineScope = rememberCoroutineScope()
 
     val loginViewModel: LoginViewModel = viewModel(
@@ -377,6 +380,7 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             motorcyclesViewModel = motorcyclesViewModel,
                             tripsViewModel = tripsViewModel,
                             profileViewModel = profileViewModel,
+                            reminderScheduler = reminderScheduler,
                             tripRepository = tripRepository,
                             motorcycleRepository = motorcycleRepository,
                             motorcyclePreferences = motorcyclePreferences,
@@ -386,6 +390,8 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                                     coroutineScope.launch {
                                         isLoggingOut = true
                                         logoutErrorMessage = null
+                                        // Reminders belong to the account that is leaving.
+                                        reminderScheduler.cancelAll()
                                         try {
                                             authRepository.logout()
                                         } catch (exception: CancellationException) {
