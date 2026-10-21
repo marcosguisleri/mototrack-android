@@ -1,21 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Cores principais da marca -->
-    <color name="primary_dark">#FF111827</color>
-    <color name="primary_teal_dark">#FF007F86</color>
-    <color name="primary_teal_light">#FF22D3DB</color>
-
-    <!-- Cores neutras -->
-    <color name="background_light">#FFF5F7FA</color>
-    <color name="white">#FFFFFFFF</color>
-    <color name="gray_slate">#FF64748B</color>
-    <color name="black">#FF000000</color>
-
-    <!-- Cores de uso específico -->
+    <!-- Splash screen background, same as the app's warm canvas -->
     <color name="splash_background">#FFF7F4EF</color>
-    <color name="text_primary">#FF111827</color>
-    <color name="text_secondary">#FF64748B</color>
-    <color name="accent">#FF22D3DB</color>
 
 </resources>
