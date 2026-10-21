@@ -1,5 +1,8 @@
 package br.dev.guisleri.mototrack.ui.screen.main
 
+import br.dev.guisleri.mototrack.ui.components.WarmDialog
+import androidx.compose.material.icons.outlined.TwoWheeler
+import androidx.compose.material.icons.Icons
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.create.MotorcycleCreateViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.create.MotorcycleCreateViewModel
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.create.MotorcycleCreateScreen
@@ -163,25 +166,17 @@ fun MainScreen(
     }
 
     if (showNoMotorcycleDialog) {
-        AlertDialog(
+        WarmDialog(
+            icon = Icons.Outlined.TwoWheeler,
+            title = "Cadastre sua moto primeiro",
+            message = "Para criar uma viagem, você precisa ter ao menos uma moto cadastrada.",
+            confirmText = "Cadastrar moto",
+            onConfirm = {
+                showNoMotorcycleDialog = false
+                backStack.add(MotorcycleCreateDestination)
+            },
             onDismissRequest = { showNoMotorcycleDialog = false },
-            title = { Text("Cadastre sua moto primeiro") },
-            text = {
-                Text("Para criar uma viagem, você precisa ter ao menos uma moto cadastrada.")
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showNoMotorcycleDialog = false
-                    backStack.add(MotorcycleCreateDestination)
-                }) {
-                    Text("Cadastrar moto")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showNoMotorcycleDialog = false }) {
-                    Text("Agora não")
-                }
-            }
+            dismissText = "Agora não"
         )
     }
 

@@ -1,5 +1,8 @@
 package br.dev.guisleri.mototrack.ui
 
+import br.dev.guisleri.mototrack.ui.components.WarmDialog
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -102,31 +105,28 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
     }
 
     if (sessionReadError) {
-        AlertDialog(
+        WarmDialog(
+            icon = Icons.Outlined.ErrorOutline,
+            title = "Não foi possível ler a sessão",
+            message = "O armazenamento local está indisponível. Tente novamente.",
+            confirmText = "Tentar novamente",
+            onConfirm = {
+                sessionReadError = false
+                sessionReadAttempt++
+            },
             onDismissRequest = {},
-            title = { Text("Não foi possível ler a sessão") },
-            text = { Text("O armazenamento local está indisponível. Tente novamente.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    sessionReadError = false
-                    sessionReadAttempt++
-                }) {
-                    Text("Tentar novamente")
-                }
-            }
+            dismissible = false
         )
     }
 
     logoutErrorMessage?.let { message ->
-        AlertDialog(
-            onDismissRequest = { logoutErrorMessage = null },
-            title = { Text("Não foi possível encerrar a sessão no servidor") },
-            text = { Text(message) },
-            confirmButton = {
-                TextButton(onClick = { logoutErrorMessage = null }) {
-                    Text("OK")
-                }
-            }
+        WarmDialog(
+            icon = Icons.Outlined.ErrorOutline,
+            title = "Não foi possível encerrar a sessão no servidor",
+            message = message,
+            confirmText = "OK",
+            onConfirm = { logoutErrorMessage = null },
+            onDismissRequest = { logoutErrorMessage = null }
         )
     }
 

@@ -75,6 +75,7 @@ import br.dev.guisleri.mototrack.ui.components.PulsingDot
 import br.dev.guisleri.mototrack.ui.components.RoadDecoration
 import br.dev.guisleri.mototrack.ui.components.RouteTimeline
 import br.dev.guisleri.mototrack.ui.components.ShimmerBlock
+import br.dev.guisleri.mototrack.ui.components.WarmDialog
 import br.dev.guisleri.mototrack.ui.components.formatTerrain
 import br.dev.guisleri.mototrack.ui.components.motorcycleColor
 import br.dev.guisleri.mototrack.ui.components.formatTripDate
@@ -160,41 +161,67 @@ private fun TripDateUpdateConfirmationDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    WarmDialog(
+        icon = Icons.Outlined.CalendarMonth,
+        title = "Atualizar a data da viagem?",
+        message = if (completing) {
+            "A data desta viagem ainda está no futuro. " +
+                    "Para concluí-la, ela será atualizada para hoje."
+        } else {
+            "Esta viagem está planejada para outro dia. " +
+                    "Para iniciá-la agora, a data será atualizada para hoje."
+        },
+        confirmText = if (completing) "Atualizar e concluir" else "Atualizar e iniciar",
+        onConfirm = onConfirm,
         onDismissRequest = onDismiss,
-        title = {
-            Text(text = "Atualizar data da viagem?")
-        },
-        text = {
-            Text(
-                text = if (completing) {
-                    "A data desta viagem é ${formatTripDate(tripDate)}, " +
-                            "depois de hoje. Para concluí-la, a data da " +
-                            "viagem será atualizada para hoje."
-                } else {
-                    "Esta viagem está planejada para " +
-                            "${formatTripDate(tripDate)}. " +
-                            "Para iniciá-la agora, a data da viagem " +
-                            "será atualizada para hoje."
-                }
+        dismissText = "Cancelar"
+    ) {
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            DateChip(
+                text = formatTripDate(tripDate),
+                containerColor = WarmHairline,
+                contentColor = WarmInkSoft
             )
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    text = if (completing) {
-                        "Atualizar e concluir"
-                    } else {
-                        "Atualizar e iniciar"
-                    }
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = "Cancelar")
-            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                contentDescription = "vira",
+                modifier = Modifier.size(18.dp),
+                tint = WarmMuted
+            )
+
+            DateChip(
+                text = "Hoje",
+                containerColor = WarmEmberTint,
+                contentColor = WarmEmberDeep
+            )
         }
+    }
+}
+
+@Composable
+private fun DateChip(
+    text: String,
+    containerColor: Color,
+    contentColor: Color
+) {
+    Text(
+        text = text,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(containerColor)
+            .padding(
+                horizontal = 14.dp,
+                vertical = 8.dp
+            ),
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = contentColor
     )
 }
 
