@@ -16,6 +16,10 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import okhttp3.ResponseBody.Companion.toResponseBody
+import retrofit2.HttpException
+import retrofit2.Response
+import org.junit.Assert.assertNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -68,6 +72,93 @@ class TripDetailsViewModelTest {
         assertEquals("IN_PROGRESS", state.trip.status)
         assertFalse(state.isUpdatingStatus)
     }
+
+    @Test
+    fun completingTripWithFutureDateAsksForConfirmationAndThenSendsIt() = runTest(dispatcher) {
+        val api = FakeTripApi().apply {
+            onUpdateStatus = {
+                if (!statusRequests.last().updateTripDateToToday) throw dateConflict()
+            }
+        }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.completeTrip()
+
+        val asked = viewModel.uiState.value as TripDetailsUiState.Success
+        assertTrue(asked.requiresTripDateUpdateConfirmation)
+        assertFalse(asked.isUpdatingStatus)
+        assertNull(asked.actionErrorMessage)
+
+        viewModel.confirmTripDateUpdate()
+
+        val state = viewModel.uiState.value as TripDetailsUiState.Success
+        assertFalse(state.requiresTripDateUpdateConfirmation)
+        assertEquals(
+            listOf(
+                UpdateTripStatusRequestDTO("COMPLETED", updateTripDateToToday = false),
+                UpdateTripStatusRequestDTO("COMPLETED", updateTripDateToToday = true)
+            ),
+            api.statusRequests
+        )
+        assertEquals("COMPLETED", state.trip.status)
+    }
+
+    @Test
+    fun startingTripOnAnotherDateStillConfirmsTheStartNotACompletion() = runTest(dispatcher) {
+        val api = FakeTripApi().apply {
+            onUpdateStatus = {
+                if (!statusRequests.last().updateTripDateToToday) throw dateConflict()
+            }
+        }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.startTrip()
+        viewModel.confirmTripDateUpdate()
+
+        assertEquals(
+            listOf("IN_PROGRESS", "IN_PROGRESS"),
+            api.statusRequests.map { it.status }
+        )
+        assertEquals(
+            "IN_PROGRESS",
+            (viewModel.uiState.value as TripDetailsUiState.Success).trip.status
+        )
+    }
+
+    @Test
+    fun dismissingTheConfirmationSendsNothingMore() = runTest(dispatcher) {
+        val api = FakeTripApi().apply {
+            onUpdateStatus = { throw dateConflict() }
+        }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.completeTrip()
+        viewModel.dismissTripDateUpdateConfirmation()
+        viewModel.confirmTripDateUpdate()
+
+        assertEquals(1, api.statusRequests.size)
+        assertFalse(
+            (viewModel.uiState.value as TripDetailsUiState.Success)
+                .requiresTripDateUpdateConfirmation
+        )
+    }
+
+    @Test
+    fun otherConflictsOnCompletionAreShownAsErrors() = runTest(dispatcher) {
+        val api = FakeTripApi().apply {
+            onUpdateStatus = { throw HttpException(Response.error<Any>(400, "".toResponseBody())) }
+        }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.completeTrip()
+
+        val state = viewModel.uiState.value as TripDetailsUiState.Success
+        assertFalse(state.requiresTripDateUpdateConfirmation)
+        assertEquals("Não foi possível alterar o status da viagem.", state.actionErrorMessage)
+    }
+
+    private fun dateConflict() =
+        HttpException(Response.error<Any>(409, "".toResponseBody()))
 
     private class FakeTripApi : TripApiService {
         var getTripCalls = 0

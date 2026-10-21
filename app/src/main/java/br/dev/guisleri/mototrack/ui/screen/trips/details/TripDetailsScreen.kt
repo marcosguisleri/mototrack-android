@@ -144,6 +144,7 @@ fun TripDetailsScreen(
             if (uiState.requiresTripDateUpdateConfirmation) {
                 TripDateUpdateConfirmationDialog(
                     tripDate = uiState.trip.tripDate,
+                    completing = uiState.trip.status == "IN_PROGRESS",
                     onConfirm = onConfirmTripDateUpdate,
                     onDismiss = onDismissTripDateUpdate
                 )
@@ -155,6 +156,7 @@ fun TripDetailsScreen(
 @Composable
 private fun TripDateUpdateConfirmationDialog(
     tripDate: String,
+    completing: Boolean,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -165,15 +167,27 @@ private fun TripDateUpdateConfirmationDialog(
         },
         text = {
             Text(
-                text = "Esta viagem está planejada para " +
-                        "${formatTripDate(tripDate)}. " +
-                        "Para iniciá-la agora, a data da viagem " +
-                        "será atualizada para hoje."
+                text = if (completing) {
+                    "A data desta viagem é ${formatTripDate(tripDate)}, " +
+                            "depois de hoje. Para concluí-la, a data da " +
+                            "viagem será atualizada para hoje."
+                } else {
+                    "Esta viagem está planejada para " +
+                            "${formatTripDate(tripDate)}. " +
+                            "Para iniciá-la agora, a data da viagem " +
+                            "será atualizada para hoje."
+                }
             )
         },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text(text = "Atualizar e iniciar")
+                Text(
+                    text = if (completing) {
+                        "Atualizar e concluir"
+                    } else {
+                        "Atualizar e iniciar"
+                    }
+                )
             }
         },
         dismissButton = {

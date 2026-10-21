@@ -520,7 +520,7 @@ fun MainScreen(
                                     tripDetailsViewModel.completeTrip()
                                 },
                                 onConfirmTripDateUpdate =
-                                    tripDetailsViewModel::confirmStartTripWithDateUpdate,
+                                    tripDetailsViewModel::confirmTripDateUpdate,
                                 onDismissTripDateUpdate =
                                     tripDetailsViewModel::dismissTripDateUpdateConfirmation,
                                 modifier = Modifier

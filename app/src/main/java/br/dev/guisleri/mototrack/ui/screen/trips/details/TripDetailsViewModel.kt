@@ -34,6 +34,10 @@ class TripDetailsViewModel(
 
     private var loadJob: Job? = null
 
+    // The status the server asked a date update for: starting a trip on another
+    // day, or completing one whose date is still in the future.
+    private var statusAwaitingDateUpdate: String? = null
+
     init {
         loadTrip()
     }
@@ -91,14 +95,18 @@ class TripDetailsViewModel(
         )
     }
 
-    fun confirmStartTripWithDateUpdate() {
+    fun confirmTripDateUpdate() {
+        val status = statusAwaitingDateUpdate ?: return
+
         updateStatus(
-            status = "IN_PROGRESS",
+            status = status,
             updateTripDateToToday = true
         )
     }
 
     fun dismissTripDateUpdateConfirmation() {
+        statusAwaitingDateUpdate = null
+
         val currentState =
             _uiState.value as? TripDetailsUiState.Success
                 ?: return
@@ -156,9 +164,11 @@ class TripDetailsViewModel(
 
                 if (
                     exception.code() == 409 &&
-                    status == "IN_PROGRESS" &&
+                    (status == "IN_PROGRESS" || status == "COMPLETED") &&
                     !updateTripDateToToday
                 ) {
+                    statusAwaitingDateUpdate = status
+
                     _uiState.value =
                         currentSuccessState(currentState).copy(
                             isUpdatingStatus = false,
