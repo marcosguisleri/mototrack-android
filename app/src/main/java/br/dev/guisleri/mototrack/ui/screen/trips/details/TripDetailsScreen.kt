@@ -360,6 +360,9 @@ private fun TripDetailsContent(
         TripPoster(trip = trip)
 
         Spacer(modifier = Modifier.height(14.dp))
+        TripRouteMap(trip = trip)
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         TripNumbers(trip = trip)
 
