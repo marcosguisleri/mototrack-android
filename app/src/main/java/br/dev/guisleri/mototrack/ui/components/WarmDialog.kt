@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -52,13 +53,17 @@ internal fun WarmDialog(
     dismissText: String? = null,
     onDismissClick: () -> Unit = onDismissRequest,
     dismissible: Boolean = true,
+    destructive: Boolean = false,
+    isLoading: Boolean = false,
     content: @Composable () -> Unit = {}
 ) {
+    val accent = if (destructive) MaterialTheme.colorScheme.error else WarmEmber
+
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(
-            dismissOnBackPress = dismissible,
-            dismissOnClickOutside = dismissible,
+            dismissOnBackPress = dismissible && !isLoading,
+            dismissOnClickOutside = dismissible && !isLoading,
             usePlatformDefaultWidth = false
         )
     ) {
@@ -83,14 +88,17 @@ internal fun WarmDialog(
                 Box(
                     modifier = Modifier
                         .size(64.dp)
-                        .background(WarmEmberTint, CircleShape),
+                        .background(
+                            if (destructive) accent.copy(alpha = 0.1f) else WarmEmberTint,
+                            CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
                         modifier = Modifier.size(30.dp),
-                        tint = WarmEmber
+                        tint = accent
                     )
                 }
 
@@ -119,19 +127,31 @@ internal fun WarmDialog(
 
                 Button(
                     onClick = onConfirm,
+                    enabled = !isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 54.dp),
                     shape = RoundedCornerShape(50),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = WarmInk,
-                        contentColor = Color.White
+                        containerColor = if (destructive) accent else WarmInk,
+                        contentColor = Color.White,
+                        disabledContainerColor =
+                            (if (destructive) accent else WarmInk).copy(alpha = 0.7f),
+                        disabledContentColor = Color.White
                     )
                 ) {
-                    Text(
-                        text = confirmText,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                            color = Color.White
+                        )
+                    } else {
+                        Text(
+                            text = confirmText,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
                 if (dismissText != null) {
@@ -139,6 +159,7 @@ internal fun WarmDialog(
 
                     TextButton(
                         onClick = onDismissClick,
+                        enabled = !isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 48.dp)
