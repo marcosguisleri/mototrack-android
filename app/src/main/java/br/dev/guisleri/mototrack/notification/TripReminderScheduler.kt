@@ -49,7 +49,10 @@ class TripReminderScheduler(context: Context) {
             if (!value) cancelAll()
         }
 
-    /** Makes the armed reminders exactly [reminders] (or none, when reminders are off). */
+    /**
+     * Makes the armed reminders that follow the list of trips exactly [reminders] (or
+     * none, when reminders are off). The ones scheduled by an event are left alone.
+     */
     fun sync(reminders: List<TripReminder>) {
         if (!isEnabled) {
             cancelAll()
@@ -57,10 +60,31 @@ class TripReminderScheduler(context: Context) {
         }
 
         val wanted = reminders.associateBy { it.requestCode }
+        val current = saved()
 
-        saved().filter { it.requestCode !in wanted }.forEach(::cancel)
+        current
+            .filter { it.kind.followsTripList && it.requestCode !in wanted }
+            .forEach(::cancel)
         wanted.values.forEach(::schedule)
-        save(wanted.values.toList())
+        save(wanted.values.toList() + current.filter { !it.kind.followsTripList })
+    }
+
+    /** Arms one reminder in answer to an event, replacing the one it repeats. */
+    fun scheduleOne(reminder: TripReminder) {
+        if (!isEnabled) return
+
+        schedule(reminder)
+        save(saved().filter { it.requestCode != reminder.requestCode } + reminder)
+    }
+
+    /** Disarms the reminder of [kind] for [tripId], if there is one. */
+    fun cancelOne(tripId: Long, kind: ReminderKind) {
+        val (matching, rest) = saved().partition { it.tripId == tripId && it.kind == kind }
+
+        if (matching.isEmpty()) return
+
+        matching.forEach(::cancel)
+        save(rest)
     }
 
     /** Arms again what was saved, e.g. after the device restarted. */
@@ -138,7 +162,8 @@ internal fun ensureReminderChannel(context: Context) {
             "Lembretes de viagem",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "Avisos na véspera e no dia das suas viagens planejadas"
+            description = "Avisos da véspera e do dia das viagens, de viagens que seguem " +
+                "em andamento e de gastos a registrar"
         }
     )
 }

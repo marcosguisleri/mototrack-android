@@ -28,6 +28,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import br.dev.guisleri.mototrack.data.local.DataStoreMotorcyclePreferences
+import br.dev.guisleri.mototrack.data.maintenance.DataStoreMaintenanceStore
 import br.dev.guisleri.mototrack.data.local.TokenStorage
 import br.dev.guisleri.mototrack.data.photo.AndroidPhotoEncoder
 import br.dev.guisleri.mototrack.data.photo.FileTripPhotoStorage
@@ -244,6 +245,10 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
         )
     }
 
+    val maintenanceStore = remember {
+        DataStoreMaintenanceStore(context.applicationContext)
+    }
+
     val reminderScheduler = remember { TripReminderScheduler(context) }
 
     val tripPhotoStorage = remember {
@@ -402,6 +407,7 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             tripPhotoStorage = tripPhotoStorage,
                             tripRepository = tripRepository,
                             tripCostRepository = tripCostRepository,
+                            maintenanceStore = maintenanceStore,
                             motorcycleRepository = motorcycleRepository,
                             motorcyclePreferences = motorcyclePreferences,
                             isLoggingOut = isLoggingOut,

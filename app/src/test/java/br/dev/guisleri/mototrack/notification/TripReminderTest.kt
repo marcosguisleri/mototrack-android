@@ -4,6 +4,7 @@ import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleOwnerDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDateTime
@@ -98,5 +99,74 @@ class TripReminderTest {
         )
 
         assertEquals(reminders.sortedBy { it.triggerAtMillis }, reminders)
+    }
+
+    private fun tripInProgress(id: Long = 1, startedAt: String?) =
+        trip(id = id, date = "2026-10-22", status = "IN_PROGRESS").copy(startedAt = startedAt)
+
+    @Test
+    fun aTripInProgressIsRemindedOfTwelveHoursAfterItStarted() {
+        val reminder = forgottenTripReminder(
+            tripInProgress(startedAt = "2026-10-22T08:00:00Z"),
+            nowMillis = millis("2026-10-22T09:00:00")
+        )
+
+        assertEquals(ReminderKind.FORGOTTEN, reminder!!.kind)
+        assertEquals(
+            java.time.Instant.parse("2026-10-22T20:00:00Z").toEpochMilli(),
+            reminder.triggerAtMillis
+        )
+        assertTrue(reminder.text.startsWith("São Paulo → Santos · 70 km"))
+    }
+
+    @Test
+    fun noForgottenReminderOncePastOrWithoutAStart() {
+        val started = "2026-10-22T08:00:00Z"
+        val afterTwelveHours = java.time.Instant.parse("2026-10-22T21:00:00Z").toEpochMilli()
+
+        assertNull(forgottenTripReminder(tripInProgress(startedAt = started), afterTwelveHours))
+        assertNull(forgottenTripReminder(tripInProgress(startedAt = null), 0L))
+        assertNull(
+            forgottenTripReminder(
+                trip(date = "2026-10-22", status = "COMPLETED").copy(startedAt = started), 0L
+            )
+        )
+    }
+
+    @Test
+    fun theForgottenReminderIsPartOfTheTripPlan() {
+        val reminders = planTripReminders(
+            listOf(tripInProgress(startedAt = "2026-10-22T08:00:00Z")),
+            nowMillis = millis("2026-10-22T09:00:00"), zone
+        )
+
+        assertEquals(listOf(ReminderKind.FORGOTTEN), reminders.map { it.kind })
+    }
+
+    @Test
+    fun theCostsReminderComesAnHourAfterTheTripEnds() {
+        val reminder = costsReminder(
+            trip(date = "2026-10-22", status = "COMPLETED"),
+            nowMillis = 1_000_000L
+        )
+
+        assertEquals(ReminderKind.COSTS, reminder.kind)
+        assertEquals(1_000_000L + 3_600_000L, reminder.triggerAtMillis)
+        assertTrue(!ReminderKind.COSTS.followsTripList)
+        assertTrue(ReminderKind.FORGOTTEN.followsTripList)
+    }
+
+    @Test
+    fun newKindsNeverReuseTheCodesOfEveningAndMorningReminders() {
+        val codes = listOf(
+            TripReminder(7, ReminderKind.EVE, 0, "", ""),
+            TripReminder(7, ReminderKind.DAY, 0, "", ""),
+            TripReminder(7, ReminderKind.FORGOTTEN, 0, "", ""),
+            TripReminder(7, ReminderKind.COSTS, 0, "", "")
+        ).map { it.requestCode }
+
+        assertEquals(4, codes.toSet().size)
+        // The first two are the ones already armed on devices.
+        assertEquals(listOf(14, 15), codes.take(2))
     }
 }

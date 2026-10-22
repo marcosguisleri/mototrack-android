@@ -48,7 +48,11 @@ import br.dev.guisleri.mototrack.notification.TripReminderScheduler
 import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripPhotosViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripPhotosViewModelFactory
 import br.dev.guisleri.mototrack.notification.canPostNotifications
+import br.dev.guisleri.mototrack.notification.ReminderKind
+import br.dev.guisleri.mototrack.notification.costsReminder
+import br.dev.guisleri.mototrack.notification.forgottenTripReminder
 import br.dev.guisleri.mototrack.notification.planTripReminders
+import br.dev.guisleri.mototrack.ui.screen.trips.details.TripCelebration
 import br.dev.guisleri.mototrack.ui.navigation.MainDestination
 import br.dev.guisleri.mototrack.ui.navigation.MotoTrackBottomBar
 import br.dev.guisleri.mototrack.ui.navigation.TripCreateDestination
@@ -80,6 +84,16 @@ import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsScreen
 import br.dev.guisleri.mototrack.ui.screen.trips.details.costs.TripCostsViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.details.costs.TripCostsViewModelFactory
 import br.dev.guisleri.mototrack.data.repository.TripCostRepository
+import br.dev.guisleri.mototrack.data.maintenance.MaintenanceStore
+import br.dev.guisleri.mototrack.data.maintenance.maintenanceOverview
+import br.dev.guisleri.mototrack.data.maintenance.summarize
+import br.dev.guisleri.mototrack.ui.navigation.MaintenanceDestination
+import br.dev.guisleri.mototrack.ui.screen.maintenance.MaintenanceScreen
+import br.dev.guisleri.mototrack.ui.screen.maintenance.MaintenanceViewModel
+import br.dev.guisleri.mototrack.ui.screen.maintenance.MaintenanceViewModelFactory
+import kotlinx.coroutines.flow.emptyFlow
+import java.time.LocalDate
+import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcycleStatisticsUiState
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsUiState
 import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsViewModel
@@ -95,6 +109,7 @@ fun MainScreen(
     tripPhotoStorage: TripPhotoStorage,
     tripRepository: TripRepository,
     tripCostRepository: TripCostRepository,
+    maintenanceStore: MaintenanceStore,
     motorcycleRepository: MotorcycleRepository,
     motorcyclePreferences: MotorcyclePreferences,
     isLoggingOut: Boolean = false,
@@ -200,6 +215,28 @@ fun MainScreen(
     LaunchedEffect(homeTrips, remindersEnabled) {
         homeTrips?.let { trips ->
             reminderScheduler.sync(planTripReminders(trips, System.currentTimeMillis()))
+        }
+    }
+
+    // How the selected motorcycle's maintenance stands, for the entry card on its tab.
+    val selectedMotorcycleId =
+        (motorcyclesUiState as? MotorcyclesUiState.Success)?.selectedMotorcycleId
+
+    val selectedTripKm =
+        ((motorcyclesUiState as? MotorcyclesUiState.Success)?.statisticsUiState
+                as? MotorcycleStatisticsUiState.Success)
+            ?.statistics
+            ?.totalCompletedDistanceKm
+
+    val selectedMaintenance by remember(selectedMotorcycleId) {
+        selectedMotorcycleId
+            ?.let { maintenanceStore.observe(it) }
+            ?: emptyFlow()
+    }.collectAsStateWithLifecycle(initialValue = null)
+
+    val maintenanceSummary = remember(selectedMaintenance, selectedTripKm) {
+        selectedMaintenance?.let {
+            summarize(maintenanceOverview(it, selectedTripKm, LocalDate.now()))
         }
     }
 
@@ -601,6 +638,43 @@ fun MainScreen(
                                 onDismissDeleteIssue =
                                     motorcyclesViewModel::dismissDeleteIssue,
                                 tripCounts = tripCountsByMotorcycle,
+                                maintenanceSummary = maintenanceSummary,
+                                onMaintenanceClick = { motorcycleId ->
+                                    backStack.add(MaintenanceDestination(motorcycleId))
+                                },
+                                modifier = Modifier
+                                    .background(WarmCanvas)
+                                    .padding(innerPadding)
+                            )
+                        }
+
+                    is MaintenanceDestination ->
+                        NavEntry(destination) {
+
+                            val maintenanceViewModel: MaintenanceViewModel = viewModel(
+                                key = "maintenance-${destination.motorcycleId}",
+                                factory = MaintenanceViewModelFactory(
+                                    motorcycleId = destination.motorcycleId,
+                                    motorcycleRepository = motorcycleRepository,
+                                    store = maintenanceStore
+                                )
+                            )
+
+                            val maintenanceUiState by maintenanceViewModel
+                                .uiState
+                                .collectAsStateWithLifecycle()
+
+                            MaintenanceScreen(
+                                uiState = maintenanceUiState,
+                                intervalFor = maintenanceViewModel::intervalFor,
+                                onBackClick = { backStack.removeLastOrNull() },
+                                onRetryClick = maintenanceViewModel::retry,
+                                onEditOdometerClick = maintenanceViewModel::openOdometerEditor,
+                                onItemClick = maintenanceViewModel::openServiceEditor,
+                                onDismissEditor = maintenanceViewModel::dismissEditor,
+                                onSaveOdometer = maintenanceViewModel::saveOdometer,
+                                onSaveService = maintenanceViewModel::saveService,
+                                onClearService = maintenanceViewModel::clearService,
                                 modifier = Modifier
                                     .background(WarmCanvas)
                                     .padding(innerPadding)
@@ -710,6 +784,41 @@ fun MainScreen(
                                 )
                             }
 
+                            // Nudges that follow this trip: one if it is left in progress for
+                            // too long, one to register its costs after it is finished.
+                            val shownTrip = (tripDetailsUiState as? TripDetailsUiState.Success)?.trip
+                            val justCompleted =
+                                (tripDetailsUiState as? TripDetailsUiState.Success)?.celebration ==
+                                    TripCelebration.COMPLETED
+
+                            LaunchedEffect(shownTrip?.id, shownTrip?.status, shownTrip?.startedAt) {
+                                val current = shownTrip ?: return@LaunchedEffect
+
+                                if (current.status == "IN_PROGRESS") {
+                                    forgottenTripReminder(current, System.currentTimeMillis())
+                                        ?.let(reminderScheduler::scheduleOne)
+                                } else {
+                                    reminderScheduler.cancelOne(current.id, ReminderKind.FORGOTTEN)
+                                }
+                            }
+
+                            LaunchedEffect(justCompleted) {
+                                val current = shownTrip ?: return@LaunchedEffect
+
+                                if (justCompleted && tripCostsUiState.summary?.totalCost == null) {
+                                    reminderScheduler.scheduleOne(
+                                        costsReminder(current, System.currentTimeMillis())
+                                    )
+                                }
+                            }
+
+                            // Nothing left to nudge about once something is registered.
+                            LaunchedEffect(tripCostsUiState.summary?.totalCost) {
+                                if (tripCostsUiState.summary?.totalCost != null) {
+                                    reminderScheduler.cancelOne(destination.tripId, ReminderKind.COSTS)
+                                }
+                            }
+
                             // Coming back from editing the trip, or from another app, what is
                             // on screen may be old: the panel of a trip on the road is live.
                             LifecycleResumeEffect(tripDetailsViewModel, tripCostsViewModel) {
@@ -742,6 +851,8 @@ fun MainScreen(
 
                             LaunchedEffect(tripWasDeleted) {
                                 if (tripWasDeleted) {
+                                    reminderScheduler.cancelOne(destination.tripId, ReminderKind.FORGOTTEN)
+                                    reminderScheduler.cancelOne(destination.tripId, ReminderKind.COSTS)
                                     // The photos only make sense with their trip.
                                     feedbackScope.launch { tripPhotoStorage.clear(destination.tripId) }
                                     (tripDetailsUiState as? TripDetailsUiState.Success)?.trip?.let { trip ->

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.EmojiEvents
@@ -89,6 +90,8 @@ import br.dev.guisleri.mototrack.ui.components.ShimmerBlock
 import br.dev.guisleri.mototrack.ui.components.MotorcycleHeroImage
 import br.dev.guisleri.mototrack.ui.components.motorcycleColor
 import br.dev.guisleri.mototrack.ui.theme.WarmCanvas
+import br.dev.guisleri.mototrack.data.maintenance.MaintenanceItem
+import br.dev.guisleri.mototrack.data.maintenance.MaintenanceSummary
 import br.dev.guisleri.mototrack.ui.theme.WarmCard
 import br.dev.guisleri.mototrack.ui.theme.WarmEmber
 import br.dev.guisleri.mototrack.ui.theme.WarmEmberDeep
@@ -140,6 +143,8 @@ fun MotorcyclesScreen(
     onDeleteMotorcycleClick: (Long) -> Unit,
     onDismissDeleteIssue: () -> Unit,
     tripCounts: Map<Long, Int>?,
+    maintenanceSummary: MaintenanceSummary?,
+    onMaintenanceClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -178,6 +183,8 @@ fun MotorcyclesScreen(
                 onDeleteMotorcycleClick = onDeleteMotorcycleClick,
                 onDismissDeleteIssue = onDismissDeleteIssue,
                 tripCounts = tripCounts,
+                maintenanceSummary = maintenanceSummary,
+                onMaintenanceClick = onMaintenanceClick,
                 modifier = modifier
             )
         }
@@ -197,6 +204,8 @@ private fun MotorcyclesContent(
     onDeleteMotorcycleClick: (Long) -> Unit,
     onDismissDeleteIssue: () -> Unit,
     tripCounts: Map<Long, Int>?,
+    maintenanceSummary: MaintenanceSummary?,
+    onMaintenanceClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -267,6 +276,11 @@ private fun MotorcyclesContent(
                 )
             }
         }
+
+        MaintenanceEntryCard(
+            summary = maintenanceSummary,
+            onClick = { onMaintenanceClick(selectedMotorcycle.id) }
+        )
 
         MotorcycleActions(
             motorcycle = selectedMotorcycle,
@@ -1218,6 +1232,91 @@ private fun WarmSectionCard(
             .padding(20.dp)
     ) {
         content()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Maintenance
+// ---------------------------------------------------------------------------
+
+/** The door to the maintenance of the selected motorcycle, with how it stands. */
+@Composable
+private fun MaintenanceEntryCard(
+    summary: MaintenanceSummary?,
+    onClick: () -> Unit
+) {
+    val attention = summary?.needsAttention == true
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(26.dp))
+            .background(WarmCard)
+            .border(
+                border = BorderStroke(1.dp, WarmHairline),
+                shape = RoundedCornerShape(26.dp)
+            )
+            .clickable(
+                onClickLabel = "Abrir manutenção",
+                role = Role.Button,
+                onClick = onClick
+            )
+            .padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .background(WarmEmberTint, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Build,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = WarmEmber
+            )
+        }
+
+        Spacer(modifier = Modifier.width(14.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Manutenção",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = WarmInk
+            )
+
+            Text(
+                text = when {
+                    summary == null || summary.unknown == MaintenanceItem.entries.size ->
+                        "Óleo, corrente, pneus, freios e mais"
+
+                    summary.overdue > 0 ->
+                        if (summary.overdue == 1) "1 item vencido" else "${summary.overdue} itens vencidos"
+
+                    summary.soon > 0 ->
+                        if (summary.soon == 1) "1 item chegando" else "${summary.soon} itens chegando"
+
+                    else -> "Tudo em dia"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (attention) FontWeight.Bold else FontWeight.Normal,
+                color = when {
+                    (summary?.overdue ?: 0) > 0 -> Color(0xFFC62828)
+                    attention -> Color(0xFFB07C00)
+                    else -> WarmInkSoft
+                }
+            )
+        }
+
+        Icon(
+            imageVector = Icons.Outlined.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = WarmMuted
+        )
     }
 }
 
