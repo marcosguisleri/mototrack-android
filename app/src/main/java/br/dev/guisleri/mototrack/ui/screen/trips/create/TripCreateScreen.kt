@@ -132,6 +132,7 @@ fun TripCreateScreen(
     onMotorcycleSelected: (Long) -> Unit,
     onRetryMotorcyclesClick: () -> Unit,
     onSubmitClick: () -> Unit,
+    onRetryTripClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by rememberSaveable {
@@ -167,11 +168,24 @@ fun TripCreateScreen(
                 onClick = onBackClick
             )
 
-            TripCreateModeCard(
-                selectedMode = uiState.mode,
-                enabled = !uiState.isSubmitting,
-                onModeSelected = onModeSelected
-            )
+            if (uiState.isEditing) {
+                TripEditHeaderCard(status = uiState.editingStatus)
+            } else {
+                TripCreateModeCard(
+                    selectedMode = uiState.mode,
+                    enabled = !uiState.isSubmitting,
+                    onModeSelected = onModeSelected
+                )
+            }
+
+            if (uiState.isLoadingTrip || uiState.loadTripErrorMessage != null) {
+                TripLoadStatus(
+                    isLoading = uiState.isLoadingTrip,
+                    message = uiState.loadTripErrorMessage,
+                    onRetryClick = onRetryTripClick
+                )
+                return@Column
+            }
 
             RouteSection(
                 uiState = uiState,
@@ -229,6 +243,103 @@ fun TripCreateScreen(
             onDateSelected = onTripDateSelected,
             onDismiss = { showDatePicker = false }
         )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Edit header
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun TripEditHeaderCard(status: String?) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(30.dp))
+            .background(GraphiteHeroBrush)
+    ) {
+        RoadDecoration(
+            modifier = Modifier.matchParentSize(),
+            color = Color.White
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(22.dp)
+        ) {
+            Text(
+                text = "EDITAR VIAGEM",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 2.sp,
+                color = WarmEmberOnDark
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Ajuste o que mudou",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = when (status) {
+                    "IN_PROGRESS" ->
+                        "A viagem segue em andamento. Rota, data e moto podem ser corrigidas."
+
+                    "COMPLETED" ->
+                        "Corrija a rota, a data ou a moto da viagem já concluída."
+
+                    else ->
+                        "A viagem continua planejada. Rota, data e moto podem mudar."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.72f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun TripLoadStatus(
+    isLoading: Boolean,
+    message: String?,
+    onRetryClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp),
+                strokeWidth = 3.dp,
+                color = WarmEmber
+            )
+        } else {
+            Text(
+                text = message.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+
+            TextButton(onClick = onRetryClick) {
+                Text(
+                    text = "Tentar novamente",
+                    color = WarmEmber,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
 
@@ -1071,7 +1182,9 @@ private fun TripCreateSubmitBar(
 
             Button(
                 onClick = onSubmitClick,
-                enabled = !uiState.isSubmitting,
+                enabled = !uiState.isSubmitting &&
+                    !uiState.isLoadingTrip &&
+                    uiState.loadTripErrorMessage == null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 58.dp),
@@ -1098,9 +1211,10 @@ private fun TripCreateSubmitBar(
                     )
                 } else {
                     Text(
-                        text = when (uiState.mode) {
-                            TripCreateMode.PLANNED -> "Criar viagem"
-                            TripCreateMode.COMPLETED -> "Registrar viagem"
+                        text = when {
+                            uiState.isEditing -> "Salvar alterações"
+                            uiState.mode == TripCreateMode.PLANNED -> "Criar viagem"
+                            else -> "Registrar viagem"
                         },
                         fontWeight = FontWeight.Bold
                     )

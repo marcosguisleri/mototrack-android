@@ -36,6 +36,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Schedule
@@ -84,6 +85,8 @@ import br.dev.guisleri.mototrack.ui.components.WarmDialog
 import br.dev.guisleri.mototrack.ui.components.formatTerrain
 import br.dev.guisleri.mototrack.ui.components.motorcycleColor
 import br.dev.guisleri.mototrack.ui.components.formatTripDate
+import br.dev.guisleri.mototrack.ui.screen.trips.details.costs.ExpenseCategory
+import br.dev.guisleri.mototrack.ui.screen.trips.details.costs.TripCostsUiState
 import br.dev.guisleri.mototrack.ui.theme.EmberHeroBrush
 import br.dev.guisleri.mototrack.ui.theme.GraphiteHeroBrush
 import br.dev.guisleri.mototrack.ui.theme.WarmCard
@@ -96,6 +99,8 @@ import br.dev.guisleri.mototrack.ui.theme.WarmInk
 import br.dev.guisleri.mototrack.ui.theme.WarmInkSoft
 import br.dev.guisleri.mototrack.ui.theme.WarmMuted
 import java.text.NumberFormat
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -118,6 +123,12 @@ fun TripDetailsScreen(
     onDismissTripDateUpdate: () -> Unit,
     onDeleteTripClick: () -> Unit,
     onCelebrationFinished: () -> Unit,
+    onEditTripClick: () -> Unit,
+    onEditTimesClick: () -> Unit,
+    onDismissTimesEditor: () -> Unit,
+    onSaveTimes: (startedAt: Instant?, completedAt: Instant?) -> Unit,
+    costs: TripCostsUiState,
+    costsActions: TripCostsActions,
     photos: TripPhotosUiState,
     onAddPhotos: (List<String>) -> Unit,
     onMakeCoverPhoto: (String) -> Unit,
@@ -157,11 +168,15 @@ fun TripDetailsScreen(
                     trip = uiState.trip,
                     isUpdatingStatus = uiState.isUpdatingStatus,
                     actionErrorMessage = uiState.actionErrorMessage,
+                    costs = costs,
+                    costsActions = costsActions,
                     onBackClick = onBackClick,
                     onStartTripClick = onStartTripClick,
                     onCompleteTripClick = onCompleteTripClick,
                     onDeleteClick = { showDeleteConfirmation = true },
                     onShareClick = { showShare = true },
+                    onEditTripClick = onEditTripClick,
+                    onEditTimesClick = onEditTimesClick,
                     photos = photos,
                     onAddPhotos = onAddPhotos,
                     onMakeCoverPhoto = onMakeCoverPhoto,
@@ -176,6 +191,25 @@ fun TripDetailsScreen(
                         onFinished = onCelebrationFinished
                     )
                 }
+            }
+
+            costs.editor?.let { editor ->
+                TripRecordEditorDialog(
+                    editor = editor,
+                    isSaving = costs.isSaving,
+                    errorMessage = costs.editorErrorMessage,
+                    actions = costsActions
+                )
+            }
+
+            if (uiState.isEditingTimes) {
+                TripTimesDialog(
+                    trip = uiState.trip,
+                    isSaving = uiState.isSavingTimes,
+                    errorMessage = uiState.timesErrorMessage,
+                    onSave = onSaveTimes,
+                    onDismiss = onDismissTimesEditor
+                )
             }
 
             if (showShare) {
@@ -344,11 +378,15 @@ private fun TripDetailsContent(
     trip: TripResponseDTO,
     isUpdatingStatus: Boolean,
     actionErrorMessage: String?,
+    costs: TripCostsUiState,
+    costsActions: TripCostsActions,
     onBackClick: () -> Unit,
     onStartTripClick: () -> Unit,
     onCompleteTripClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onShareClick: () -> Unit,
+    onEditTripClick: () -> Unit,
+    onEditTimesClick: () -> Unit,
     photos: TripPhotosUiState,
     onAddPhotos: (List<String>) -> Unit,
     onMakeCoverPhoto: (String) -> Unit,
@@ -356,6 +394,23 @@ private fun TripDetailsContent(
     onSeeAllPhotosClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val inProgress = trip.status == "IN_PROGRESS"
+
+    // The clock only runs while there is a trip on the road.
+    val now by rememberNow(active = inProgress)
+    val elapsed = tripElapsed(trip, now)
+    val stats = tripLiveStats(trip, costs.summary, elapsed)
+
+    val photosSection: @Composable () -> Unit = {
+        TripPhotosSection(
+            state = photos,
+            onAddPhotos = onAddPhotos,
+            onMakeCover = onMakeCoverPhoto,
+            onRemovePhoto = onRemovePhoto,
+            onSeeAllClick = onSeeAllPhotosClick
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -365,43 +420,103 @@ private fun TripDetailsContent(
                 end = 20.dp,
                 top = 12.dp,
                 bottom = 28.dp
-            )
+            ),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         TripDetailsTopBar(
             onBackClick = onBackClick,
             onShareClick = onShareClick,
+            onEditClick = onEditTripClick,
             onDeleteClick = onDeleteClick
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        when (trip.status) {
+            // A trip on the road is a live panel: the clock, the money and the log.
+            "IN_PROGRESS" -> {
+                TripLiveHero(
+                    trip = trip,
+                    now = now,
+                    onAdjustTimesClick = onEditTimesClick
+                )
 
-        TripPoster(trip = trip)
+                TripQuickActions(
+                    onFuelClick = costsActions.onAddFuel,
+                    onTollClick = { costsActions.onAddExpense(ExpenseCategory.TOLL) },
+                    onExpenseClick = { costsActions.onAddExpense(ExpenseCategory.FOOD) }
+                )
 
-        Spacer(modifier = Modifier.height(14.dp))
-        TripRouteMap(trip = trip)
+                TripLiveStatsGrid(stats = stats)
 
-        Spacer(modifier = Modifier.height(14.dp))
+                // Nothing to break down until the first record; a failure still shows.
+                val hasRecords = costs.summary
+                    ?.let { it.fuel.entries > 0 || it.expenses.isNotEmpty() } == true
 
-        TripNumbers(trip = trip)
+                if (hasRecords || costs.errorMessage != null) {
+                    TripCostsCard(
+                        trip = trip,
+                        costs = costs,
+                        stats = stats,
+                        live = true,
+                        onRetry = costsActions.onRetry
+                    )
+                }
 
-        Spacer(modifier = Modifier.height(14.dp))
+                TripRecordsCard(
+                    records = costs.records,
+                    onRecordClick = costsActions.onRecordClick
+                )
 
-        // A planned trip has nothing to remember yet.
-        if (trip.status != "PLANNED") {
-            TripPhotosSection(
-                state = photos,
-                onAddPhotos = onAddPhotos,
-                onMakeCover = onMakeCoverPhoto,
-                onRemovePhoto = onRemovePhoto,
-                onSeeAllClick = onSeeAllPhotosClick
-            )
+                TripRouteMap(trip = trip)
 
-            Spacer(modifier = Modifier.height(14.dp))
+                photosSection()
+            }
+
+            "COMPLETED" -> {
+                TripPoster(trip = trip)
+
+                TripRouteMap(trip = trip)
+
+                TripNumbers(trip = trip, elapsed = elapsed)
+
+                photosSection()
+
+                TripCostsCard(
+                    trip = trip,
+                    costs = costs,
+                    stats = stats,
+                    live = false,
+                    onRetry = costsActions.onRetry
+                )
+
+                TripRecordsCard(
+                    records = costs.records,
+                    onRecordClick = costsActions.onRecordClick
+                )
+
+                TextButton(
+                    onClick = onEditTimesClick,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text(
+                        text = "Ajustar horários da viagem",
+                        color = WarmEmber,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            else -> {
+                TripPoster(trip = trip)
+
+                TripRouteMap(trip = trip)
+
+                TripNumbers(trip = trip, elapsed = null)
+
+                PlannedCostsNote()
+            }
         }
 
-        TripCostsCard(trip = trip)
-
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         TripDetailsAction(
             status = trip.status,
@@ -412,9 +527,26 @@ private fun TripDetailsContent(
             onShareClick = onShareClick
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         BrandFooter()
+    }
+}
+
+/** A trip that has not started has no costs; says when they begin. */
+@Composable
+private fun PlannedCostsNote() {
+    SectionCard {
+        SectionLabel("GASTOS")
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = "Quando a viagem começar, abastecimentos, pedágios e outros gastos " +
+                "entram aqui e o custo por km é calculado na hora.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = WarmInkSoft
+        )
     }
 }
 
@@ -426,6 +558,7 @@ private fun TripDetailsContent(
 private fun TripDetailsTopBar(
     onBackClick: () -> Unit,
     onShareClick: (() -> Unit)? = null,
+    onEditClick: (() -> Unit)? = null,
     onDeleteClick: (() -> Unit)? = null
 ) {
     Row(
@@ -445,6 +578,16 @@ private fun TripDetailsTopBar(
                 icon = Icons.Outlined.Share,
                 contentDescription = "Compartilhar viagem",
                 onClick = onShareClick
+            )
+        }
+
+        if (onEditClick != null) {
+            Spacer(modifier = Modifier.width(10.dp))
+
+            CircleActionButton(
+                icon = Icons.Outlined.Edit,
+                contentDescription = "Editar viagem",
+                onClick = onEditClick
             )
         }
 
@@ -728,9 +871,15 @@ private fun SpecChip(
 
 @Composable
 private fun TripNumbers(
-    trip: TripResponseDTO
+    trip: TripResponseDTO,
+    elapsed: Duration?
 ) {
-    val (timeValue, timeLabel) = timeStat(trip)
+    val (timeValue, timeLabel) =
+        if (trip.status == "COMPLETED" && elapsed != null) {
+            formatDuration(elapsed) to "de estrada"
+        } else {
+            timeStat(trip)
+        }
 
     Row(
         modifier = Modifier
@@ -815,230 +964,6 @@ private fun NumberTile(
             color = WarmMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Costs (sample data, see TripCostSample)
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun TripCostsCard(
-    trip: TripResponseDTO
-) {
-    val costs = sampleCostFor(trip)
-    val isCompleted = trip.status == "COMPLETED"
-
-    val fuelWeight = costs.fuelCost.toFloat().coerceAtLeast(0.01f)
-    val tollWeight = costs.tollCost.toFloat()
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
-            .background(WarmCard)
-            .border(
-                border = BorderStroke(1.dp, WarmHairline),
-                shape = RoundedCornerShape(28.dp)
-            )
-            .padding(22.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "GASTOS",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 1.6.sp,
-                color = WarmEmber
-            )
-
-            Text(
-                text = if (isCompleted) "Registrado" else "Estimado",
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(WarmHairline)
-                    .padding(
-                        horizontal = 10.dp,
-                        vertical = 4.dp
-                    ),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = WarmInkSoft
-            )
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        Text(
-            text = formatMoney(costs.total),
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.ExtraBold,
-            color = WarmInk,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        Spacer(modifier = Modifier.height(2.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (isCompleted) "gastos no total" else "total estimado",
-                style = MaterialTheme.typography.bodyMedium,
-                color = WarmInkSoft
-            )
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Text(
-                text = "${formatMoney(costs.costPerKm)}/km",
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(WarmEmberTint)
-                    .padding(
-                        horizontal = 10.dp,
-                        vertical = 4.dp
-                    ),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = WarmEmberDeep
-            )
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(10.dp)
-                .clip(RoundedCornerShape(50))
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(fuelWeight)
-                    .fillMaxHeight()
-                    .background(WarmEmber)
-            )
-
-            if (tollWeight > 0f) {
-                Box(
-                    modifier = Modifier
-                        .weight(tollWeight)
-                        .fillMaxHeight()
-                        .background(WarmInk)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        CostRow(
-            icon = Icons.Outlined.LocalGasStation,
-            dotColor = WarmEmber,
-            title = "Combustível",
-            detail = "${formatLiters(costs.fuelLiters)} de gasolina",
-            value = formatMoney(costs.fuelCost)
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        CostRow(
-            icon = Icons.Outlined.Toll,
-            dotColor = WarmInk,
-            title = "Pedágios",
-            detail = when (costs.tollCount) {
-                0 -> "Nenhuma praça"
-                1 -> "1 passagem"
-                else -> "${costs.tollCount} passagens"
-            },
-            value = formatMoney(costs.tollCost)
-        )
-
-        if (SHOW_SAMPLE_COSTS_NOTICE) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Valores de exemplo, calculados a partir da distância.",
-                style = MaterialTheme.typography.bodySmall,
-                color = WarmMuted
-            )
-        }
-    }
-}
-
-@Composable
-private fun CostRow(
-    icon: ImageVector,
-    dotColor: Color,
-    title: String,
-    detail: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(WarmEmberTint, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = WarmEmber
-            )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(dotColor, CircleShape)
-                )
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = WarmInk
-                )
-            }
-
-            Text(
-                text = detail,
-                style = MaterialTheme.typography.bodySmall,
-                color = WarmMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = WarmInk,
-            maxLines = 1
         )
     }
 }
@@ -1359,15 +1284,3 @@ private fun formatKmNumber(distanceKm: Double): String {
 
     return formatter.format(distanceKm)
 }
-
-private fun formatLiters(liters: Double): String {
-    val formatter = NumberFormat.getNumberInstance(
-        Locale.forLanguageTag("pt-BR")
-    ).apply {
-        minimumFractionDigits = 1
-        maximumFractionDigits = 1
-    }
-
-    return "${formatter.format(liters)} L"
-}
-

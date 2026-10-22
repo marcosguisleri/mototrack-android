@@ -50,6 +50,8 @@ import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.main.MainScreen
 import br.dev.guisleri.mototrack.data.remote.motorcycle.MotorcycleApiService
 import br.dev.guisleri.mototrack.data.remote.trip.TripApiService
+import br.dev.guisleri.mototrack.data.remote.trip.TripCostApiService
+import br.dev.guisleri.mototrack.data.repository.TripCostRepository
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 import br.dev.guisleri.mototrack.data.remote.user.UserApiService
 import br.dev.guisleri.mototrack.data.repository.TripRepository
@@ -236,6 +238,12 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
         )
     }
 
+    val tripCostRepository = remember(authenticatedRetrofit) {
+        TripCostRepository(
+            api = authenticatedRetrofit.create(TripCostApiService::class.java)
+        )
+    }
+
     val reminderScheduler = remember { TripReminderScheduler(context) }
 
     val tripPhotoStorage = remember {
@@ -393,6 +401,7 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             reminderScheduler = reminderScheduler,
                             tripPhotoStorage = tripPhotoStorage,
                             tripRepository = tripRepository,
+                            tripCostRepository = tripCostRepository,
                             motorcycleRepository = motorcycleRepository,
                             motorcyclePreferences = motorcyclePreferences,
                             isLoggingOut = isLoggingOut,

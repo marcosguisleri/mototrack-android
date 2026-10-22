@@ -52,3 +52,22 @@ internal fun formatTerrain(
         else -> terrain
     }
 }
+
+internal fun formatMoney(value: Double): String =
+    NumberFormat
+        .getCurrencyInstance(Locale.forLanguageTag("pt-BR"))
+        .format(value)
+        .replace(' ', ' ')
+
+internal fun formatLiters(
+    liters: Double
+): String {
+    val formatter = NumberFormat.getNumberInstance(
+        Locale.forLanguageTag("pt-BR")
+    ).apply {
+        minimumFractionDigits = 1
+        maximumFractionDigits = 3
+    }
+
+    return "${formatter.format(liters)} L"
+}

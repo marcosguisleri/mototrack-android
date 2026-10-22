@@ -53,6 +53,7 @@ import br.dev.guisleri.mototrack.ui.navigation.MainDestination
 import br.dev.guisleri.mototrack.ui.navigation.MotoTrackBottomBar
 import br.dev.guisleri.mototrack.ui.navigation.TripCreateDestination
 import br.dev.guisleri.mototrack.ui.navigation.TripDetailsDestination
+import br.dev.guisleri.mototrack.ui.navigation.TripEditDestination
 import br.dev.guisleri.mototrack.ui.navigation.TripGalleryDestination
 import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripGalleryScreen
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
@@ -71,9 +72,15 @@ import br.dev.guisleri.mototrack.ui.screen.trips.TripsUiState
 import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.create.TripCreateMode
 import br.dev.guisleri.mototrack.ui.screen.trips.create.TripCreateScreen
+import br.dev.guisleri.mototrack.ui.screen.trips.create.TripCreateUiState
 import br.dev.guisleri.mototrack.ui.screen.trips.create.TripCreateViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.create.TripCreateViewModelFactory
+import br.dev.guisleri.mototrack.ui.screen.trips.details.TripCostsActions
 import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsScreen
+import br.dev.guisleri.mototrack.ui.screen.trips.details.costs.TripCostsViewModel
+import br.dev.guisleri.mototrack.ui.screen.trips.details.costs.TripCostsViewModelFactory
+import br.dev.guisleri.mototrack.data.repository.TripCostRepository
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsUiState
 import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.details.TripDetailsViewModelFactory
@@ -87,6 +94,7 @@ fun MainScreen(
     reminderScheduler: TripReminderScheduler,
     tripPhotoStorage: TripPhotoStorage,
     tripRepository: TripRepository,
+    tripCostRepository: TripCostRepository,
     motorcycleRepository: MotorcycleRepository,
     motorcyclePreferences: MotorcyclePreferences,
     isLoggingOut: Boolean = false,
@@ -496,27 +504,48 @@ fun MainScreen(
                                 }
                             }
 
-                            TripCreateScreen(
+                            TripFormScreen(
+                                viewModel = tripCreateViewModel,
                                 uiState = tripCreateUiState,
-                                onBackClick = {
+                                onBackClick = { backStack.removeLastOrNull() },
+                                modifier = Modifier
+                                    .background(WarmCanvas)
+                                    .padding(innerPadding)
+                                    .consumeWindowInsets(innerPadding)
+                            )
+                        }
+
+                    is TripEditDestination ->
+                        NavEntry(destination) {
+
+                            val tripEditViewModel: TripCreateViewModel = viewModel(
+                                key = "trip-edit-${destination.tripId}",
+                                factory = TripCreateViewModelFactory(
+                                    tripRepository = tripRepository,
+                                    motorcycleRepository = motorcycleRepository,
+                                    motorcyclePreferences = motorcyclePreferences,
+                                    editingTripId = destination.tripId
+                                )
+                            )
+
+                            val tripEditUiState by tripEditViewModel
+                                .uiState
+                                .collectAsStateWithLifecycle()
+
+                            LaunchedEffect(tripEditUiState.isUpdated) {
+                                if (tripEditUiState.isUpdated) {
+                                    showFeedback(Feedback("Viagem atualizada"))
+                                    tripsViewModel.refreshTrips()
+                                    homeViewModel.loadHome()
+                                    motorcyclesViewModel.loadMotorcycles()
                                     backStack.removeLastOrNull()
-                                },
-                                onModeSelected = tripCreateViewModel::onModeSelected,
-                                onOriginChange = tripCreateViewModel::onOriginChange,
-                                onDestinationChange =
-                                    tripCreateViewModel::onDestinationChange,
-                                onSwapRouteClick = tripCreateViewModel::swapRoute,
-                                onDistanceChange = tripCreateViewModel::onDistanceChange,
-                                onApplyDistanceSuggestionClick =
-                                    tripCreateViewModel::applyDistanceSuggestion,
-                                onTripDateSelected =
-                                    tripCreateViewModel::onTripDateSelected,
-                                onTerrainSelected = tripCreateViewModel::onTerrainSelected,
-                                onMotorcycleSelected =
-                                    tripCreateViewModel::onMotorcycleSelected,
-                                onRetryMotorcyclesClick =
-                                    tripCreateViewModel::loadMotorcycles,
-                                onSubmitClick = tripCreateViewModel::submit,
+                                }
+                            }
+
+                            TripFormScreen(
+                                viewModel = tripEditViewModel,
+                                uiState = tripEditUiState,
+                                onBackClick = { backStack.removeLastOrNull() },
                                 modifier = Modifier
                                     .background(WarmCanvas)
                                     .padding(innerPadding)
@@ -656,6 +685,40 @@ fun MainScreen(
                                 .uiState
                                 .collectAsStateWithLifecycle()
 
+                            val tripCostsViewModel: TripCostsViewModel = viewModel(
+                                key = "trip-costs-${destination.tripId}",
+                                factory = TripCostsViewModelFactory(
+                                    tripId = destination.tripId,
+                                    repository = tripCostRepository
+                                )
+                            )
+
+                            val tripCostsUiState by tripCostsViewModel
+                                .uiState
+                                .collectAsStateWithLifecycle()
+
+                            val tripCostsActions = remember(tripCostsViewModel) {
+                                TripCostsActions(
+                                    onAddFuel = tripCostsViewModel::addFuel,
+                                    onAddExpense = tripCostsViewModel::addExpense,
+                                    onRecordClick = tripCostsViewModel::editRecord,
+                                    onRetry = tripCostsViewModel::retry,
+                                    onDismissEditor = tripCostsViewModel::dismissEditor,
+                                    onSaveFuel = tripCostsViewModel::saveFuel,
+                                    onSaveExpense = tripCostsViewModel::saveExpense,
+                                    onDeleteRecord = tripCostsViewModel::deleteEditedRecord
+                                )
+                            }
+
+                            // Coming back from editing the trip, or from another app, what is
+                            // on screen may be old: the panel of a trip on the road is live.
+                            LifecycleResumeEffect(tripDetailsViewModel, tripCostsViewModel) {
+                                tripDetailsViewModel.refresh()
+                                tripCostsViewModel.refresh()
+
+                                onPauseOrDispose { }
+                            }
+
                             val tripPhotosViewModel: TripPhotosViewModel = viewModel(
                                 viewModelStoreOwner = mainViewModelOwner,
                                 key = "trip-photos-${destination.tripId}",
@@ -715,6 +778,14 @@ fun MainScreen(
                                     tripDetailsViewModel::dismissTripDateUpdateConfirmation,
                                 onDeleteTripClick = tripDetailsViewModel::deleteTrip,
                                 onCelebrationFinished = tripDetailsViewModel::celebrationFinished,
+                                onEditTripClick = {
+                                    backStack.add(TripEditDestination(destination.tripId))
+                                },
+                                onEditTimesClick = tripDetailsViewModel::openTimesEditor,
+                                onDismissTimesEditor = tripDetailsViewModel::dismissTimesEditor,
+                                onSaveTimes = tripDetailsViewModel::correctTimes,
+                                costs = tripCostsUiState,
+                                costsActions = tripCostsActions,
                                 photos = tripPhotosUiState,
                                 onAddPhotos = tripPhotosViewModel::addPhotos,
                                 onMakeCoverPhoto = tripPhotosViewModel::makeCover,
@@ -743,4 +814,31 @@ fun MainScreen(
             }
         )
     }
+}
+
+/** The trip form, whether it creates a trip or edits one; the entries own what follows a save. */
+@Composable
+private fun TripFormScreen(
+    viewModel: TripCreateViewModel,
+    uiState: TripCreateUiState,
+    onBackClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    TripCreateScreen(
+        uiState = uiState,
+        onBackClick = onBackClick,
+        onModeSelected = viewModel::onModeSelected,
+        onOriginChange = viewModel::onOriginChange,
+        onDestinationChange = viewModel::onDestinationChange,
+        onSwapRouteClick = viewModel::swapRoute,
+        onDistanceChange = viewModel::onDistanceChange,
+        onApplyDistanceSuggestionClick = viewModel::applyDistanceSuggestion,
+        onTripDateSelected = viewModel::onTripDateSelected,
+        onTerrainSelected = viewModel::onTerrainSelected,
+        onMotorcycleSelected = viewModel::onMotorcycleSelected,
+        onRetryMotorcyclesClick = viewModel::loadMotorcycles,
+        onSubmitClick = viewModel::submit,
+        onRetryTripClick = viewModel::loadTrip,
+        modifier = modifier
+    )
 }

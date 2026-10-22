@@ -7,6 +7,7 @@ import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO
 import br.dev.guisleri.mototrack.data.model.trip.CreateTripRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.data.model.trip.UpdateTripStatusRequestDTO
+import br.dev.guisleri.mototrack.data.model.trip.UpdateTripTimestampsRequestDTO
 import br.dev.guisleri.mototrack.data.remote.trip.TripApiService
 import br.dev.guisleri.mototrack.data.repository.TripRepository
 import kotlinx.coroutines.CompletableDeferred
@@ -27,6 +28,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.IOException
+import java.time.Instant
 
 class TripDetailsViewModelTest {
 
@@ -265,6 +267,79 @@ class TripDetailsViewModelTest {
         assertNull((viewModel.uiState.value as TripDetailsUiState.Success).celebration)
     }
 
+    @Test
+    fun correctingTimesSendsBothInstantsAndClosesTheEditor() = runTest(dispatcher) {
+        val api = FakeTripApi().apply { setStatus("COMPLETED") }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+        val started = Instant.parse("2026-10-20T11:00:00Z")
+        val completed = Instant.parse("2026-10-20T15:30:00Z")
+
+        viewModel.openTimesEditor()
+        assertTrue((viewModel.uiState.value as TripDetailsUiState.Success).isEditingTimes)
+
+        viewModel.correctTimes(started, completed)
+
+        val state = viewModel.uiState.value as TripDetailsUiState.Success
+        assertFalse(state.isEditingTimes)
+        assertFalse(state.isSavingTimes)
+        assertEquals("2026-10-20T11:00:00Z", state.trip.startedAt)
+        assertEquals("2026-10-20T15:30:00Z", state.trip.completedAt)
+        assertEquals(
+            listOf(UpdateTripTimestampsRequestDTO("2026-10-20T11:00:00Z", "2026-10-20T15:30:00Z")),
+            api.timestampRequests
+        )
+    }
+
+    @Test
+    fun rejectedTimesKeepTheEditorOpenWithTheServerMessage() = runTest(dispatcher) {
+        val api = FakeTripApi().apply {
+            setStatus("IN_PROGRESS")
+            onCorrectTimestamps = {
+                throw HttpException(
+                    Response.error<Any>(
+                        400,
+                        """{"status":400,"error":"Bad Request","message":"O horário de início da viagem não pode estar no futuro."}"""
+                            .toResponseBody()
+                    )
+                )
+            }
+        }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.openTimesEditor()
+        viewModel.correctTimes(Instant.parse("2099-01-01T00:00:00Z"), null)
+
+        val state = viewModel.uiState.value as TripDetailsUiState.Success
+        assertTrue(state.isEditingTimes)
+        assertFalse(state.isSavingTimes)
+        assertEquals(
+            "O horário de início da viagem não pode estar no futuro.",
+            state.timesErrorMessage
+        )
+    }
+
+    @Test
+    fun aPlannedTripHasNoTimesToCorrect() = runTest(dispatcher) {
+        val viewModel = TripDetailsViewModel(1, TripRepository(FakeTripApi()))
+
+        viewModel.openTimesEditor()
+
+        assertFalse((viewModel.uiState.value as TripDetailsUiState.Success).isEditingTimes)
+    }
+
+    @Test
+    fun refreshReplacesTheTripWithoutShowingTheLoadingState() = runTest(dispatcher) {
+        val api = FakeTripApi()
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        api.setStatus("IN_PROGRESS")
+        viewModel.refresh()
+
+        val state = viewModel.uiState.value as TripDetailsUiState.Success
+        assertEquals("IN_PROGRESS", state.trip.status)
+        assertEquals(2, api.getTripCalls)
+    }
+
     private fun dateConflict() =
         HttpException(Response.error<Any>(409, "".toResponseBody()))
 
@@ -273,6 +348,28 @@ class TripDetailsViewModelTest {
         val statusRequests = mutableListOf<UpdateTripStatusRequestDTO>()
         var onUpdateStatus: suspend () -> Unit = {}
         private var status = "PLANNED"
+
+        fun setStatus(value: String) {
+            status = value
+        }
+
+        override suspend fun updateTrip(
+            tripId: Long,
+            request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO
+        ): TripResponseDTO =
+            throw AssertionError("Unexpected trip update")
+
+        override suspend fun correctTripTimestamps(
+            tripId: Long,
+            request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripTimestampsRequestDTO
+        ): TripResponseDTO {
+            onCorrectTimestamps()
+            timestampRequests += request
+            return trip(status).copy(
+                startedAt = request.startedAt,
+                completedAt = request.completedAt
+            )
+        }
 
         override suspend fun getTrips(): List<TripResponseDTO> =
             throw AssertionError("Unexpected list request")
@@ -293,6 +390,8 @@ class TripDetailsViewModelTest {
             throw AssertionError("Unexpected completed trip registration")
 
         val deletedTripIds = mutableListOf<Long>()
+        val timestampRequests = mutableListOf<br.dev.guisleri.mototrack.data.model.trip.UpdateTripTimestampsRequestDTO>()
+        var onCorrectTimestamps: suspend () -> Unit = {}
         var onDelete: suspend () -> Unit = {}
 
         override suspend fun deleteTrip(tripId: Long) {

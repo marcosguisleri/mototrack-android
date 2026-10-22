@@ -60,5 +60,13 @@ data class TripCreateUiState(
     val distanceSuggestion: Double? = null,
     val isSubmitting: Boolean = false,
     val submitErrorMessage: String? = null,
-    val isCreated: Boolean = false
-)
+    val isCreated: Boolean = false,
+    // Set when the form edits an existing trip instead of creating one.
+    val editingTripId: Long? = null,
+    val editingStatus: String? = null,
+    val isLoadingTrip: Boolean = false,
+    val loadTripErrorMessage: String? = null,
+    val isUpdated: Boolean = false
+) {
+    val isEditing: Boolean get() = editingTripId != null
+}

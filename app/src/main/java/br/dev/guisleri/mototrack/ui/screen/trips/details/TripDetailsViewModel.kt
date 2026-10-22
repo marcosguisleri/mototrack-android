@@ -14,6 +14,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import retrofit2.HttpException
 import java.io.IOException
+import java.time.Instant
 
 private val apiErrorJson = Json {
     ignoreUnknownKeys = true
@@ -80,6 +81,112 @@ class TripDetailsViewModel(
                     )
             }
         }
+    }
+
+    /**
+     * Reloads the trip without the loading state, for when the screen comes back
+     * (from editing the trip, or from the background) and what it shows may be old.
+     */
+    fun refresh() {
+        val state = _uiState.value as? TripDetailsUiState.Success ?: return
+        if (state.isUpdatingStatus || state.isDeleting || state.isSavingTimes) return
+
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            try {
+                val trip = tripRepository.getTripById(tripId = tripId)
+
+                (_uiState.value as? TripDetailsUiState.Success)?.let { current ->
+                    _uiState.value = current.copy(trip = trip)
+                }
+
+            } catch (exception: CancellationException) {
+                throw exception
+
+            } catch (exception: Exception) {
+                // What is on screen is still the last thing the server said.
+            }
+        }
+    }
+
+    fun openTimesEditor() {
+        val state = _uiState.value as? TripDetailsUiState.Success ?: return
+        if (state.trip.status == "PLANNED") return
+
+        _uiState.value = state.copy(
+            isEditingTimes = true,
+            timesErrorMessage = null
+        )
+    }
+
+    fun dismissTimesEditor() {
+        val state = _uiState.value as? TripDetailsUiState.Success ?: return
+        if (state.isSavingTimes) return
+
+        _uiState.value = state.copy(
+            isEditingTimes = false,
+            timesErrorMessage = null
+        )
+    }
+
+    /** A null clears that time; a trip in progress has no completion time. */
+    fun correctTimes(startedAt: Instant?, completedAt: Instant?) {
+        val state = _uiState.value as? TripDetailsUiState.Success ?: return
+        if (state.isSavingTimes) return
+
+        _uiState.value = state.copy(
+            isSavingTimes = true,
+            timesErrorMessage = null
+        )
+
+        viewModelScope.launch {
+            try {
+                val trip = tripRepository.correctTripTimestamps(
+                    tripId = tripId,
+                    startedAt = startedAt?.toString(),
+                    completedAt = completedAt?.toString()
+                )
+
+                _uiState.value = currentSuccessState(state).copy(
+                    trip = trip,
+                    isEditingTimes = false,
+                    isSavingTimes = false,
+                    timesErrorMessage = null
+                )
+
+            } catch (exception: CancellationException) {
+                throw exception
+
+            } catch (exception: HttpException) {
+                showTimesError(
+                    state,
+                    getApiErrorMessage(exception)
+                        ?: "Não foi possível ajustar os horários."
+                )
+
+            } catch (exception: IOException) {
+                showTimesError(
+                    state,
+                    "Não foi possível comunicar com o servidor."
+                )
+
+            } catch (exception: Exception) {
+                showTimesError(
+                    state,
+                    "Não foi possível ajustar os horários."
+                )
+            }
+        }
+    }
+
+    private fun showTimesError(
+        fallback: TripDetailsUiState.Success,
+        message: String
+    ) {
+        _uiState.value = currentSuccessState(fallback).copy(
+            isSavingTimes = false,
+            timesErrorMessage = message
+        )
     }
 
     fun startTrip() {

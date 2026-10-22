@@ -11,7 +11,8 @@ class TripCreateViewModelFactory(
     private val motorcycleRepository: MotorcycleRepository,
     private val motorcyclePreferences: MotorcyclePreferences,
     private val initialMode: TripCreateMode = TripCreateMode.PLANNED,
-    private val requestedMotorcycleId: Long? = null
+    private val requestedMotorcycleId: Long? = null,
+    private val editingTripId: Long? = null
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -24,7 +25,8 @@ class TripCreateViewModelFactory(
                 motorcycleRepository = motorcycleRepository,
                 motorcyclePreferences = motorcyclePreferences,
                 initialMode = initialMode,
-                requestedMotorcycleId = requestedMotorcycleId
+                requestedMotorcycleId = requestedMotorcycleId,
+                editingTripId = editingTripId
             ) as T
         }
 

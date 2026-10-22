@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.dev.guisleri.mototrack.data.model.common.ApiErrorResponseDTO
 import br.dev.guisleri.mototrack.data.model.trip.CreateTripRequestDTO
+import br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO
 import br.dev.guisleri.mototrack.data.local.MotorcyclePreferences
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 import kotlinx.coroutines.flow.first
@@ -33,11 +34,18 @@ class TripCreateViewModel(
     private val motorcycleRepository: MotorcycleRepository,
     private val motorcyclePreferences: MotorcyclePreferences,
     initialMode: TripCreateMode = TripCreateMode.PLANNED,
-    private val requestedMotorcycleId: Long? = null
+    private val requestedMotorcycleId: Long? = null,
+    private val editingTripId: Long? = null
 ) : ViewModel() {
 
     private val _uiState =
-        MutableStateFlow(TripCreateUiState(mode = initialMode))
+        MutableStateFlow(
+            TripCreateUiState(
+                mode = initialMode,
+                editingTripId = editingTripId,
+                isLoadingTrip = editingTripId != null
+            )
+        )
 
     val uiState: StateFlow<TripCreateUiState> =
         _uiState.asStateFlow()
@@ -50,10 +58,68 @@ class TripCreateViewModel(
     private var defaultMotorcycleId: Long? = null
     private var userPickedMotorcycle = false
 
+    private var tripJob: Job? = null
+
     init {
         loadMotorcycles()
         loadHistory()
         loadDefaultMotorcycle()
+        loadTrip()
+    }
+
+    /** When editing, fills the form with the trip as the server has it. */
+    fun loadTrip() {
+        val tripId = editingTripId ?: return
+
+        tripJob?.cancel()
+
+        _uiState.value = _uiState.value.copy(
+            isLoadingTrip = true,
+            loadTripErrorMessage = null
+        )
+
+        tripJob = viewModelScope.launch {
+            try {
+                val trip = tripRepository.getTripById(tripId)
+
+                // The trip's own motorcycle wins over the defaults.
+                userPickedMotorcycle = true
+
+                _uiState.value = _uiState.value.copy(
+                    isLoadingTrip = false,
+                    mode = if (trip.status == "PLANNED") {
+                        TripCreateMode.PLANNED
+                    } else {
+                        TripCreateMode.COMPLETED
+                    },
+                    editingStatus = trip.status,
+                    origin = trip.origin,
+                    destination = trip.destination,
+                    distance = formatDistanceInput(trip.distanceKm),
+                    tripDate = runCatching { LocalDate.parse(trip.tripDate) }
+                        .getOrDefault(LocalDate.now()),
+                    terrain = TripCreateTerrain.entries
+                        .firstOrNull { it.apiValue == trip.terrain }
+                        ?: TripCreateTerrain.ASPHALT,
+                    selectedMotorcycleId = trip.motorcycle.id
+                ).withDistanceSuggestion()
+
+            } catch (exception: CancellationException) {
+                throw exception
+
+            } catch (exception: IOException) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingTrip = false,
+                    loadTripErrorMessage = "Não foi possível comunicar com o servidor."
+                )
+
+            } catch (exception: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingTrip = false,
+                    loadTripErrorMessage = "Não foi possível carregar a viagem."
+                )
+            }
+        }
     }
 
     private fun loadDefaultMotorcycle() {
@@ -212,7 +278,7 @@ class TripCreateViewModel(
 
     fun onModeSelected(mode: TripCreateMode) {
         val state = _uiState.value
-        if (state.mode == mode || state.isSubmitting) return
+        if (state.mode == mode || state.isSubmitting || state.isEditing) return
 
         val today = LocalDate.now()
 
@@ -281,7 +347,9 @@ class TripCreateViewModel(
 
     fun submit() {
         val state = _uiState.value
-        if (state.isSubmitting) return
+        if (state.isSubmitting || state.isLoadingTrip || state.loadTripErrorMessage != null) {
+            return
+        }
 
         val origin = state.origin.trim()
         val destination = state.destination.trim()
@@ -324,6 +392,8 @@ class TripCreateViewModel(
             motorcycleId = motorcycleId
         )
 
+        val editingId = state.editingTripId
+
         _uiState.value = state.copy(
             isSubmitting = true,
             submitErrorMessage = null
@@ -331,17 +401,32 @@ class TripCreateViewModel(
 
         viewModelScope.launch {
             try {
-                when (state.mode) {
-                    TripCreateMode.PLANNED ->
-                        tripRepository.scheduleTrip(request)
+                if (editingId != null) {
+                    tripRepository.updateTrip(
+                        tripId = editingId,
+                        request = UpdateTripRequestDTO(
+                            origin = request.origin,
+                            destination = request.destination,
+                            distanceKm = request.distanceKm,
+                            terrain = request.terrain,
+                            tripDate = request.tripDate,
+                            motorcycleId = request.motorcycleId
+                        )
+                    )
+                } else {
+                    when (state.mode) {
+                        TripCreateMode.PLANNED ->
+                            tripRepository.scheduleTrip(request)
 
-                    TripCreateMode.COMPLETED ->
-                        tripRepository.registerCompletedTrip(request)
+                        TripCreateMode.COMPLETED ->
+                            tripRepository.registerCompletedTrip(request)
+                    }
                 }
 
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
-                    isCreated = true
+                    isCreated = editingId == null,
+                    isUpdated = editingId != null
                 )
 
             } catch (exception: CancellationException) {
@@ -352,7 +437,7 @@ class TripCreateViewModel(
                     isSubmitting = false,
                     submitErrorMessage =
                         getApiErrorMessage(exception)
-                            ?: defaultSubmitError(state.mode)
+                            ?: defaultSubmitError(state)
                 )
 
             } catch (exception: IOException) {
@@ -365,14 +450,16 @@ class TripCreateViewModel(
             } catch (exception: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
-                    submitErrorMessage = defaultSubmitError(state.mode)
+                    submitErrorMessage = defaultSubmitError(state)
                 )
             }
         }
     }
 
-    private fun defaultSubmitError(mode: TripCreateMode): String =
-        when (mode) {
+    private fun defaultSubmitError(state: TripCreateUiState): String =
+        if (state.isEditing) {
+            "Não foi possível salvar as alterações."
+        } else when (state.mode) {
             TripCreateMode.PLANNED ->
                 "Não foi possível criar a viagem."
 

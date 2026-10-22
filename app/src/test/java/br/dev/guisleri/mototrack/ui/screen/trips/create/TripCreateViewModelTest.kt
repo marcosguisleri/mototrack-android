@@ -7,6 +7,7 @@ import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleStatisticsResponseDTO
 import br.dev.guisleri.mototrack.data.model.trip.CreateTripRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
+import br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.UpdateTripStatusRequestDTO
 import br.dev.guisleri.mototrack.data.local.MotorcyclePreferences
 import br.dev.guisleri.mototrack.data.remote.motorcycle.MotorcycleApiService
@@ -199,13 +200,14 @@ class TripCreateViewModelTest {
         destination: String,
         distanceKm: Double,
         date: String,
-        motorcycleId: Long
+        motorcycleId: Long,
+        status: String = "COMPLETED"
     ) = TripResponseDTO(
         id = id,
         origin = origin,
         destination = destination,
         distanceKm = distanceKm,
-        status = "COMPLETED",
+        status = status,
         terrain = "ASPHALT",
         tripDate = date,
         motorcycle = motorcycle(motorcycleId)
@@ -295,13 +297,113 @@ class TripCreateViewModelTest {
         tripApi: FakeTripApi = FakeTripApi(),
         motorcycles: List<MotorcycleResponseDTO>,
         preferences: FakeMotorcyclePreferences = FakeMotorcyclePreferences(),
-        requestedMotorcycleId: Long? = null
+        requestedMotorcycleId: Long? = null,
+        editingTripId: Long? = null
     ) = TripCreateViewModel(
         tripRepository = TripRepository(tripApi),
         motorcycleRepository = MotorcycleRepository(FakeMotorcycleApi(motorcycles)),
         motorcyclePreferences = preferences,
-        requestedMotorcycleId = requestedMotorcycleId
+        requestedMotorcycleId = requestedMotorcycleId,
+        editingTripId = editingTripId
     )
+
+    @Test
+    fun editingFillsTheFormWithTheTripAsTheServerHasIt() = runTest(dispatcher) {
+        val tripApi = FakeTripApi().apply {
+            stored = historyTrip(9, "Curitiba", "Floripa", 300.0, "2026-10-20", 2, "IN_PROGRESS")
+        }
+
+        val viewModel = viewModel(
+            tripApi = tripApi,
+            motorcycles = listOf(motorcycle(1), motorcycle(2)),
+            editingTripId = 9
+        )
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isEditing)
+        assertFalse(state.isLoadingTrip)
+        assertEquals("IN_PROGRESS", state.editingStatus)
+        assertEquals("Curitiba", state.origin)
+        assertEquals("Floripa", state.destination)
+        assertEquals("300", state.distance)
+        assertEquals(LocalDate.parse("2026-10-20"), state.tripDate)
+        assertEquals(2L, state.selectedMotorcycleId)
+        // A trip that already left takes past dates, like a registered one.
+        assertEquals(TripCreateMode.COMPLETED, state.mode)
+    }
+
+    @Test
+    fun editingSubmitsAnUpdateInsteadOfCreatingATrip() = runTest(dispatcher) {
+        val tripApi = FakeTripApi().apply {
+            stored = historyTrip(9, "Curitiba", "Floripa", 300.0, "2026-10-20", 1, "COMPLETED")
+        }
+        val viewModel = viewModel(
+            tripApi = tripApi,
+            motorcycles = listOf(motorcycle(1)),
+            editingTripId = 9
+        )
+
+        viewModel.onDestinationChange("Joinville")
+        viewModel.onDistanceChange("180,5")
+        viewModel.submit()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isUpdated)
+        assertFalse(state.isCreated)
+        assertEquals(
+            listOf(
+                9L to UpdateTripRequestDTO(
+                    origin = "Curitiba",
+                    destination = "Joinville",
+                    distanceKm = 180.5,
+                    terrain = "ASPHALT",
+                    tripDate = "2026-10-20",
+                    motorcycleId = 1
+                )
+            ),
+            tripApi.updated
+        )
+        assertTrue(tripApi.scheduled.isEmpty())
+        assertTrue(tripApi.completed.isEmpty())
+    }
+
+    @Test
+    fun editingCannotChangeTheMode() = runTest(dispatcher) {
+        val tripApi = FakeTripApi().apply {
+            stored = historyTrip(9, "A", "B", 10.0, "2026-10-20", 1, "COMPLETED")
+        }
+        val viewModel = viewModel(
+            tripApi = tripApi,
+            motorcycles = listOf(motorcycle(1)),
+            editingTripId = 9
+        )
+
+        viewModel.onModeSelected(TripCreateMode.PLANNED)
+
+        assertEquals(TripCreateMode.COMPLETED, viewModel.uiState.value.mode)
+    }
+
+    @Test
+    fun failedTripLoadBlocksSavingUntilItIsRetried() = runTest(dispatcher) {
+        val tripApi = FakeTripApi().apply { loadFailure = IOException("offline") }
+        val viewModel = viewModel(
+            tripApi = tripApi,
+            motorcycles = listOf(motorcycle(1)),
+            editingTripId = 9
+        )
+
+        assertNotNull(viewModel.uiState.value.loadTripErrorMessage)
+
+        viewModel.submit()
+        assertTrue(tripApi.updated.isEmpty())
+
+        tripApi.loadFailure = null
+        tripApi.stored = historyTrip(9, "A", "B", 10.0, "2026-10-20", 1, "COMPLETED")
+        viewModel.loadTrip()
+
+        assertNull(viewModel.uiState.value.loadTripErrorMessage)
+        assertEquals("A", viewModel.uiState.value.origin)
+    }
 
     @Test
     fun defaultMotorcycleBeatsTheLatestTrip() = runTest(dispatcher) {
@@ -367,11 +469,30 @@ class TripCreateViewModelTest {
         val completed = mutableListOf<CreateTripRequestDTO>()
         var onSchedule: suspend () -> Unit = {}
         var history: List<TripResponseDTO> = emptyList()
+        var stored: TripResponseDTO? = null
+        var loadFailure: Exception? = null
+        val updated = mutableListOf<Pair<Long, UpdateTripRequestDTO>>()
+
+        override suspend fun updateTrip(
+            tripId: Long,
+            request: UpdateTripRequestDTO
+        ): TripResponseDTO {
+            updated += tripId to request
+            return stored ?: throw AssertionError("No stored trip")
+        }
+
+        override suspend fun correctTripTimestamps(
+            tripId: Long,
+            request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripTimestampsRequestDTO
+        ): TripResponseDTO =
+            throw AssertionError("Unexpected timestamps correction")
 
         override suspend fun getTrips(): List<TripResponseDTO> = history
 
-        override suspend fun getTripById(tripId: Long): TripResponseDTO =
-            throw AssertionError("Unexpected detail request")
+        override suspend fun getTripById(tripId: Long): TripResponseDTO {
+            loadFailure?.let { throw it }
+            return stored ?: throw AssertionError("Unexpected detail request")
+        }
 
         override suspend fun scheduleTrip(
             request: CreateTripRequestDTO
