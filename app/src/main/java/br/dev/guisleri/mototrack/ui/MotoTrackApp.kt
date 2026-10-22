@@ -29,6 +29,9 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import br.dev.guisleri.mototrack.data.local.DataStoreMotorcyclePreferences
 import br.dev.guisleri.mototrack.data.local.TokenStorage
+import br.dev.guisleri.mototrack.data.photo.AndroidPhotoEncoder
+import br.dev.guisleri.mototrack.data.photo.FileTripPhotoStorage
+import java.io.File
 import br.dev.guisleri.mototrack.data.network.HomeApiService
 import br.dev.guisleri.mototrack.data.network.RetrofitClient
 import br.dev.guisleri.mototrack.data.repository.AuthRepository
@@ -235,6 +238,13 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
 
     val reminderScheduler = remember { TripReminderScheduler(context) }
 
+    val tripPhotoStorage = remember {
+        FileTripPhotoStorage(
+            root = File(context.applicationContext.filesDir, "trip_photos"),
+            encoder = AndroidPhotoEncoder(context)
+        )
+    }
+
     val coroutineScope = rememberCoroutineScope()
 
     val loginViewModel: LoginViewModel = viewModel(
@@ -381,6 +391,7 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             tripsViewModel = tripsViewModel,
                             profileViewModel = profileViewModel,
                             reminderScheduler = reminderScheduler,
+                            tripPhotoStorage = tripPhotoStorage,
                             tripRepository = tripRepository,
                             motorcycleRepository = motorcycleRepository,
                             motorcyclePreferences = motorcyclePreferences,

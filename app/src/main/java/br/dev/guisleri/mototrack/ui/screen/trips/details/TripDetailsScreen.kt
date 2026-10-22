@@ -72,6 +72,8 @@ import androidx.compose.ui.unit.sp
 import br.dev.guisleri.mototrack.data.model.motorcycle.motorcycleType
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.ui.components.BrandMark
+import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripPhotosSection
+import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripPhotosUiState
 import br.dev.guisleri.mototrack.ui.components.CircleActionButton
 import br.dev.guisleri.mototrack.ui.components.HeroPill
 import br.dev.guisleri.mototrack.ui.components.PulsingDot
@@ -116,6 +118,10 @@ fun TripDetailsScreen(
     onDismissTripDateUpdate: () -> Unit,
     onDeleteTripClick: () -> Unit,
     onCelebrationFinished: () -> Unit,
+    photos: TripPhotosUiState,
+    onAddPhotos: (List<String>) -> Unit,
+    onMakeCoverPhoto: (String) -> Unit,
+    onRemovePhoto: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -154,7 +160,11 @@ fun TripDetailsScreen(
                     onStartTripClick = onStartTripClick,
                     onCompleteTripClick = onCompleteTripClick,
                     onDeleteClick = { showDeleteConfirmation = true },
-                    onShareClick = { showShare = true }
+                    onShareClick = { showShare = true },
+                    photos = photos,
+                    onAddPhotos = onAddPhotos,
+                    onMakeCoverPhoto = onMakeCoverPhoto,
+                    onRemovePhoto = onRemovePhoto
                 )
 
                 uiState.celebration?.let { celebration ->
@@ -337,6 +347,10 @@ private fun TripDetailsContent(
     onCompleteTripClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onShareClick: () -> Unit,
+    photos: TripPhotosUiState,
+    onAddPhotos: (List<String>) -> Unit,
+    onMakeCoverPhoto: (String) -> Unit,
+    onRemovePhoto: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -368,6 +382,18 @@ private fun TripDetailsContent(
         TripNumbers(trip = trip)
 
         Spacer(modifier = Modifier.height(14.dp))
+
+        // A planned trip has nothing to remember yet.
+        if (trip.status != "PLANNED") {
+            TripPhotosSection(
+                state = photos,
+                onAddPhotos = onAddPhotos,
+                onMakeCover = onMakeCoverPhoto,
+                onRemovePhoto = onRemovePhoto
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+        }
 
         TripCostsCard(trip = trip)
 

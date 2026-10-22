@@ -43,7 +43,10 @@ import androidx.navigation3.ui.NavDisplay
 import br.dev.guisleri.mototrack.data.local.MotorcyclePreferences
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 import br.dev.guisleri.mototrack.data.repository.TripRepository
+import br.dev.guisleri.mototrack.data.photo.TripPhotoStorage
 import br.dev.guisleri.mototrack.notification.TripReminderScheduler
+import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripPhotosViewModel
+import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripPhotosViewModelFactory
 import br.dev.guisleri.mototrack.notification.canPostNotifications
 import br.dev.guisleri.mototrack.notification.planTripReminders
 import br.dev.guisleri.mototrack.ui.navigation.MainDestination
@@ -79,6 +82,7 @@ fun MainScreen(
     tripsViewModel: TripsViewModel,
     profileViewModel: ProfileViewModel,
     reminderScheduler: TripReminderScheduler,
+    tripPhotoStorage: TripPhotoStorage,
     tripRepository: TripRepository,
     motorcycleRepository: MotorcycleRepository,
     motorcyclePreferences: MotorcyclePreferences,
@@ -612,12 +616,30 @@ fun MainScreen(
                                 .uiState
                                 .collectAsStateWithLifecycle()
 
+                            val tripPhotosViewModel: TripPhotosViewModel = viewModel(
+                                key = "trip-photos-${destination.tripId}",
+                                factory = TripPhotosViewModelFactory(
+                                    tripId = destination.tripId,
+                                    storage = tripPhotoStorage
+                                )
+                            )
+
+                            val tripPhotosUiState by tripPhotosViewModel
+                                .uiState
+                                .collectAsStateWithLifecycle()
+
+                            LaunchedEffect(tripPhotosViewModel) {
+                                tripPhotosViewModel.feedback.collect(showFeedback)
+                            }
+
                             val tripWasDeleted =
                                 (tripDetailsUiState as? TripDetailsUiState.Success)
                                     ?.isDeleted == true
 
                             LaunchedEffect(tripWasDeleted) {
                                 if (tripWasDeleted) {
+                                    // The photos only make sense with their trip.
+                                    feedbackScope.launch { tripPhotoStorage.clear(destination.tripId) }
                                     (tripDetailsUiState as? TripDetailsUiState.Success)?.trip?.let { trip ->
                                         showFeedback(
                                             Feedback("Viagem excluída: ${trip.origin} → ${trip.destination}")
@@ -652,6 +674,10 @@ fun MainScreen(
                                     tripDetailsViewModel::dismissTripDateUpdateConfirmation,
                                 onDeleteTripClick = tripDetailsViewModel::deleteTrip,
                                 onCelebrationFinished = tripDetailsViewModel::celebrationFinished,
+                                photos = tripPhotosUiState,
+                                onAddPhotos = tripPhotosViewModel::addPhotos,
+                                onMakeCoverPhoto = tripPhotosViewModel::makeCover,
+                                onRemovePhoto = tripPhotosViewModel::removePhoto,
                                 modifier = Modifier
                                     .background(WarmCanvas)
                                     .padding(innerPadding)
