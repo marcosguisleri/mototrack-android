@@ -28,6 +28,23 @@ private object TripPhotoBitmaps {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
     }
 
+    private val ratios = java.util.concurrent.ConcurrentHashMap<String, Float>()
+
+    /** Width over height, read from the file header without decoding the picture. */
+    suspend fun aspectRatio(file: File): Float =
+        withContext(Dispatchers.IO) {
+            ratios.getOrPut(file.absolutePath) {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(file.absolutePath, bounds)
+
+                if (bounds.outWidth > 0 && bounds.outHeight > 0) {
+                    bounds.outWidth.toFloat() / bounds.outHeight
+                } else {
+                    1f
+                }
+            }
+        }
+
     suspend fun load(file: File, targetPx: Int): ImageBitmap? =
         withContext(Dispatchers.IO) {
             val key = "${file.absolutePath}@$targetPx"
@@ -74,4 +91,14 @@ internal fun TripPhotoImage(
             )
         }
     }
+}
+
+/** Width over height of a kept photo, or 1 until it is known. */
+@Composable
+internal fun rememberPhotoAspectRatio(file: File): Float {
+    val ratio by produceState(initialValue = 1f, file) {
+        value = TripPhotoBitmaps.aspectRatio(file)
+    }
+
+    return ratio
 }

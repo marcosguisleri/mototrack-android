@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -66,6 +67,7 @@ internal fun TripPhotosSection(
     onAddPhotos: (List<String>) -> Unit,
     onMakeCover: (String) -> Unit,
     onRemovePhoto: (String) -> Unit,
+    onSeeAllClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var viewerIndex by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -150,6 +152,13 @@ internal fun TripPhotosSection(
                     modifier = Modifier.padding(horizontal = 22.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SeeAllButton(
+                onClick = onSeeAllClick,
+                modifier = Modifier.padding(horizontal = 22.dp)
+            )
         }
     }
 
@@ -165,6 +174,39 @@ internal fun TripPhotosSection(
                 onDismiss = { viewerIndex = null }
             )
         }
+    }
+}
+
+@Composable
+private fun SeeAllButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(50))
+            .border(BorderStroke(1.5.dp, WarmEmber.copy(alpha = 0.5f)), RoundedCornerShape(50))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 13.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.GridView,
+            contentDescription = null,
+            modifier = Modifier.size(19.dp),
+            tint = WarmEmber
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Text(
+            text = "Ver todas as fotos",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = WarmEmber
+        )
     }
 }
 

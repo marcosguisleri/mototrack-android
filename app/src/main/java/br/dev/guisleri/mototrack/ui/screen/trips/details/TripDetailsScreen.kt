@@ -122,6 +122,7 @@ fun TripDetailsScreen(
     onAddPhotos: (List<String>) -> Unit,
     onMakeCoverPhoto: (String) -> Unit,
     onRemovePhoto: (String) -> Unit,
+    onSeeAllPhotosClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -164,7 +165,8 @@ fun TripDetailsScreen(
                     photos = photos,
                     onAddPhotos = onAddPhotos,
                     onMakeCoverPhoto = onMakeCoverPhoto,
-                    onRemovePhoto = onRemovePhoto
+                    onRemovePhoto = onRemovePhoto,
+                    onSeeAllPhotosClick = onSeeAllPhotosClick
                 )
 
                 uiState.celebration?.let { celebration ->
@@ -351,6 +353,7 @@ private fun TripDetailsContent(
     onAddPhotos: (List<String>) -> Unit,
     onMakeCoverPhoto: (String) -> Unit,
     onRemovePhoto: (String) -> Unit,
+    onSeeAllPhotosClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -389,7 +392,8 @@ private fun TripDetailsContent(
                 state = photos,
                 onAddPhotos = onAddPhotos,
                 onMakeCover = onMakeCoverPhoto,
-                onRemovePhoto = onRemovePhoto
+                onRemovePhoto = onRemovePhoto,
+                onSeeAllClick = onSeeAllPhotosClick
             )
 
             Spacer(modifier = Modifier.height(14.dp))

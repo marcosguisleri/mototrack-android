@@ -53,6 +53,9 @@ import br.dev.guisleri.mototrack.ui.navigation.MainDestination
 import br.dev.guisleri.mototrack.ui.navigation.MotoTrackBottomBar
 import br.dev.guisleri.mototrack.ui.navigation.TripCreateDestination
 import br.dev.guisleri.mototrack.ui.navigation.TripDetailsDestination
+import br.dev.guisleri.mototrack.ui.navigation.TripGalleryDestination
+import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripGalleryScreen
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import br.dev.guisleri.mototrack.ui.theme.WarmCanvas
 import br.dev.guisleri.mototrack.ui.screen.home.HomeHighlightState
 import br.dev.guisleri.mototrack.ui.screen.home.HomeScreen
@@ -93,6 +96,10 @@ fun MainScreen(
     val backStack = rememberNavBackStack(
         MainDestination.HOME
     )
+
+    // The photos of a trip are shared by its details and its gallery, so their view model
+    // lives here, not in either screen.
+    val mainViewModelOwner = checkNotNull(LocalViewModelStoreOwner.current)
 
     val currentDestination =
         backStack
@@ -601,6 +608,39 @@ fun MainScreen(
                             )
                         }
 
+                    is TripGalleryDestination ->
+                        NavEntry(destination) {
+
+                            val tripPhotosViewModel: TripPhotosViewModel = viewModel(
+                                viewModelStoreOwner = mainViewModelOwner,
+                                key = "trip-photos-${destination.tripId}",
+                                factory = TripPhotosViewModelFactory(
+                                    tripId = destination.tripId,
+                                    storage = tripPhotoStorage
+                                )
+                            )
+
+                            val tripPhotosUiState by tripPhotosViewModel
+                                .uiState
+                                .collectAsStateWithLifecycle()
+
+                            LaunchedEffect(tripPhotosViewModel) {
+                                tripPhotosViewModel.feedback.collect(showFeedback)
+                            }
+
+                            TripGalleryScreen(
+                                route = destination.route,
+                                state = tripPhotosUiState,
+                                onBackClick = { backStack.removeLastOrNull() },
+                                onAddPhotos = tripPhotosViewModel::addPhotos,
+                                onMakeCover = tripPhotosViewModel::makeCover,
+                                onRemovePhoto = tripPhotosViewModel::removePhoto,
+                                modifier = Modifier
+                                    .background(WarmCanvas)
+                                    .padding(innerPadding)
+                            )
+                        }
+
                     is TripDetailsDestination ->
                         NavEntry(destination) {
 
@@ -617,6 +657,7 @@ fun MainScreen(
                                 .collectAsStateWithLifecycle()
 
                             val tripPhotosViewModel: TripPhotosViewModel = viewModel(
+                                viewModelStoreOwner = mainViewModelOwner,
                                 key = "trip-photos-${destination.tripId}",
                                 factory = TripPhotosViewModelFactory(
                                     tripId = destination.tripId,
@@ -678,6 +719,16 @@ fun MainScreen(
                                 onAddPhotos = tripPhotosViewModel::addPhotos,
                                 onMakeCoverPhoto = tripPhotosViewModel::makeCover,
                                 onRemovePhoto = tripPhotosViewModel::removePhoto,
+                                onSeeAllPhotosClick = {
+                                    (tripDetailsUiState as? TripDetailsUiState.Success)?.trip?.let { trip ->
+                                        backStack.add(
+                                            TripGalleryDestination(
+                                                tripId = trip.id,
+                                                route = "${trip.origin} → ${trip.destination}"
+                                            )
+                                        )
+                                    }
+                                },
                                 modifier = Modifier
                                     .background(WarmCanvas)
                                     .padding(innerPadding)
