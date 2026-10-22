@@ -2,7 +2,9 @@ package br.dev.guisleri.mototrack.data.repository
 
 import br.dev.guisleri.mototrack.data.model.trip.CreateTripRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
+import br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.UpdateTripStatusRequestDTO
+import br.dev.guisleri.mototrack.data.model.trip.UpdateTripTimestampsRequestDTO
 import br.dev.guisleri.mototrack.data.remote.trip.TripApiService
 
 class TripRepository (
@@ -29,6 +31,27 @@ class TripRepository (
         request: CreateTripRequestDTO
     ): TripResponseDTO {
         return tripApiService.registerCompletedTrip(request)
+    }
+
+    suspend fun updateTrip(
+        tripId: Long,
+        request: UpdateTripRequestDTO
+    ): TripResponseDTO {
+        return tripApiService.updateTrip(tripId, request)
+    }
+
+    suspend fun correctTripTimestamps(
+        tripId: Long,
+        startedAt: String?,
+        completedAt: String?
+    ): TripResponseDTO {
+        return tripApiService.correctTripTimestamps(
+            tripId = tripId,
+            request = UpdateTripTimestampsRequestDTO(
+                startedAt = startedAt,
+                completedAt = completedAt
+            )
+        )
     }
 
     suspend fun deleteTrip(

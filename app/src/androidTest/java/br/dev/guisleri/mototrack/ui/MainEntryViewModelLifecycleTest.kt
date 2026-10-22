@@ -80,6 +80,18 @@ class MainEntryViewModelLifecycleTest {
         )
         val tripRepository = TripRepository(
             object : TripApiService {
+                override suspend fun updateTrip(
+                    tripId: Long,
+                    request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO
+                ): TripResponseDTO =
+                    throw AssertionError("Unexpected trip update")
+
+                override suspend fun correctTripTimestamps(
+                    tripId: Long,
+                    request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripTimestampsRequestDTO
+                ): TripResponseDTO =
+                    throw AssertionError("Unexpected timestamps correction")
+
                 override suspend fun getTrips(): List<TripResponseDTO> =
                     emptyList()
 

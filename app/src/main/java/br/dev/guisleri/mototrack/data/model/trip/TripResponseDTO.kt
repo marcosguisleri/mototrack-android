@@ -12,5 +12,8 @@ data class TripResponseDTO(
     val status: String,
     val terrain: String,
     val tripDate: String,
-    val motorcycle: MotorcycleResponseDTO
+    val motorcycle: MotorcycleResponseDTO,
+    // ISO-8601 instants; null until the trip starts / finishes (or for old trips).
+    val startedAt: String? = null,
+    val completedAt: String? = null
 )

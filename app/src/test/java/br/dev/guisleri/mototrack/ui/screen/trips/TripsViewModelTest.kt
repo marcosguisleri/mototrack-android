@@ -94,6 +94,18 @@ class TripsViewModelTest {
         var getTripsCalls = 0
         var onGetTrips: suspend () -> List<TripResponseDTO> = { emptyList() }
 
+        override suspend fun updateTrip(
+            tripId: Long,
+            request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO
+        ): TripResponseDTO =
+            throw AssertionError("Unexpected trip update")
+
+        override suspend fun correctTripTimestamps(
+            tripId: Long,
+            request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripTimestampsRequestDTO
+        ): TripResponseDTO =
+            throw AssertionError("Unexpected timestamps correction")
+
         override suspend fun getTrips(): List<TripResponseDTO> {
             getTripsCalls++
             return onGetTrips()
