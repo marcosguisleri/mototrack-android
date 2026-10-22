@@ -769,9 +769,7 @@ fun MainScreen(
                                 onStartTripClick = {
                                     tripDetailsViewModel.startTrip()
                                 },
-                                onCompleteTripClick = {
-                                    tripDetailsViewModel.completeTrip()
-                                },
+                                onCompleteTripClick = tripDetailsViewModel::completeTrip,
                                 onConfirmTripDateUpdate =
                                     tripDetailsViewModel::confirmTripDateUpdate,
                                 onDismissTripDateUpdate =

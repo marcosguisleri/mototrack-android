@@ -3,6 +3,7 @@ package br.dev.guisleri.mototrack.ui.screen.trips.details
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.dev.guisleri.mototrack.data.model.common.ApiErrorResponseDTO
+import br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO
 import br.dev.guisleri.mototrack.data.repository.TripRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -15,6 +16,7 @@ import kotlinx.serialization.json.Json
 import retrofit2.HttpException
 import java.io.IOException
 import java.time.Instant
+import kotlin.math.abs
 
 private val apiErrorJson = Json {
     ignoreUnknownKeys = true
@@ -38,6 +40,9 @@ class TripDetailsViewModel(
     // The status the server asked a date update for: starting a trip on another
     // day, or completing one whose date is still in the future.
     private var statusAwaitingDateUpdate: String? = null
+
+    // Kept across the date confirmation, which repeats the completion.
+    private var pendingActualDistanceKm: Double? = null
 
     init {
         loadTrip()
@@ -196,7 +201,14 @@ class TripDetailsViewModel(
         )
     }
 
-    fun completeTrip() {
+    /**
+     * Completes the trip. When [actualDistanceKm] is given the trip's distance is
+     * corrected once it is completed (a completed trip can no longer have a future
+     * date, so the status goes first).
+     */
+    fun completeTrip(actualDistanceKm: Double? = null) {
+        pendingActualDistanceKm = actualDistanceKm
+
         updateStatus(
             status = "COMPLETED"
         )
@@ -284,6 +296,7 @@ class TripDetailsViewModel(
 
     fun dismissTripDateUpdateConfirmation() {
         statusAwaitingDateUpdate = null
+        pendingActualDistanceKm = null
 
         val currentState =
             _uiState.value as? TripDetailsUiState.Success
@@ -322,6 +335,9 @@ class TripDetailsViewModel(
                     updateTripDateToToday = updateTripDateToToday
                 )
 
+                val distanceError =
+                    if (status == "COMPLETED") saveActualDistance() else null
+
                 val updatedTrip =
                     tripRepository.getTripById(
                         tripId = tripId
@@ -331,7 +347,7 @@ class TripDetailsViewModel(
                     currentState.copy(
                         trip = updatedTrip,
                         isUpdatingStatus = false,
-                        actionErrorMessage = null,
+                        actionErrorMessage = distanceError,
                         requiresTripDateUpdateConfirmation = false,
                         celebration = if (status == "COMPLETED") {
                             TripCelebration.COMPLETED
@@ -386,6 +402,38 @@ class TripDetailsViewModel(
                             "Não foi possível alterar o status da viagem."
                     )
             }
+        }
+    }
+
+    /** The message to show when the trip was completed but its distance could not be saved. */
+    private suspend fun saveActualDistance(): String? {
+        val distanceKm = pendingActualDistanceKm ?: return null
+        pendingActualDistanceKm = null
+
+        return try {
+            val trip = tripRepository.getTripById(tripId = tripId)
+
+            if (abs(trip.distanceKm - distanceKm) >= 0.05) {
+                tripRepository.updateTrip(
+                    tripId = tripId,
+                    request = UpdateTripRequestDTO(
+                        origin = trip.origin,
+                        destination = trip.destination,
+                        distanceKm = distanceKm,
+                        terrain = trip.terrain,
+                        tripDate = trip.tripDate,
+                        motorcycleId = trip.motorcycle.id
+                    )
+                )
+            }
+
+            null
+
+        } catch (exception: CancellationException) {
+            throw exception
+
+        } catch (exception: Exception) {
+            "A viagem foi concluída, mas não foi possível salvar a distância percorrida."
         }
     }
 

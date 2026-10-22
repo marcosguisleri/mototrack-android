@@ -99,7 +99,6 @@ import br.dev.guisleri.mototrack.ui.theme.WarmInk
 import br.dev.guisleri.mototrack.ui.theme.WarmInkSoft
 import br.dev.guisleri.mototrack.ui.theme.WarmMuted
 import java.text.NumberFormat
-import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -118,7 +117,7 @@ fun TripDetailsScreen(
     onRetryClick: () -> Unit,
     onBackClick: () -> Unit,
     onStartTripClick: () -> Unit,
-    onCompleteTripClick: () -> Unit,
+    onCompleteTripClick: (actualDistanceKm: Double?) -> Unit,
     onConfirmTripDateUpdate: () -> Unit,
     onDismissTripDateUpdate: () -> Unit,
     onDeleteTripClick: () -> Unit,
@@ -163,6 +162,10 @@ fun TripDetailsScreen(
                 mutableStateOf(false)
             }
 
+            var showFinishDialog by remember {
+                mutableStateOf(false)
+            }
+
             Box(modifier = modifier) {
                 TripDetailsContent(
                     trip = uiState.trip,
@@ -172,7 +175,7 @@ fun TripDetailsScreen(
                     costsActions = costsActions,
                     onBackClick = onBackClick,
                     onStartTripClick = onStartTripClick,
-                    onCompleteTripClick = onCompleteTripClick,
+                    onCompleteTripClick = { showFinishDialog = true },
                     onDeleteClick = { showDeleteConfirmation = true },
                     onShareClick = { showShare = true },
                     onEditTripClick = onEditTripClick,
@@ -212,9 +215,27 @@ fun TripDetailsScreen(
                 )
             }
 
+            if (showFinishDialog && uiState.trip.status == "IN_PROGRESS") {
+                TripFinishDialog(
+                    plannedDistanceKm = uiState.trip.distanceKm,
+                    onConfirm = { actualDistanceKm ->
+                        showFinishDialog = false
+                        onCompleteTripClick(actualDistanceKm)
+                    },
+                    onDismiss = { showFinishDialog = false }
+                )
+            }
+
             if (showShare) {
+                val shareStats = tripLiveStats(
+                    trip = uiState.trip,
+                    summary = costs.summary,
+                    elapsed = tripElapsed(uiState.trip, Instant.now())
+                )
+
                 TripShareDialog(
                     trip = uiState.trip,
+                    costs = shareStats.toShareCosts(uiState.trip),
                     onDismiss = { showShare = false }
                 )
             }
@@ -472,11 +493,14 @@ private fun TripDetailsContent(
             }
 
             "COMPLETED" -> {
-                TripPoster(trip = trip)
+                TripSummaryHero(
+                    trip = trip,
+                    costs = costs,
+                    stats = stats,
+                    elapsed = elapsed
+                )
 
                 TripRouteMap(trip = trip)
-
-                TripNumbers(trip = trip, elapsed = elapsed)
 
                 photosSection()
 
@@ -510,7 +534,7 @@ private fun TripDetailsContent(
 
                 TripRouteMap(trip = trip)
 
-                TripNumbers(trip = trip, elapsed = null)
+                TripNumbers(trip = trip)
 
                 PlannedCostsNote()
             }
@@ -570,6 +594,10 @@ private fun TripDetailsTopBar(
             contentDescription = "Voltar",
             onClick = onBackClick
         )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        BrandMark(compact = true)
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -786,7 +814,7 @@ private fun TripPoster(
 }
 
 @Composable
-private fun StatusPill(
+internal fun StatusPill(
     status: String
 ) {
     when (status) {
@@ -871,15 +899,9 @@ private fun SpecChip(
 
 @Composable
 private fun TripNumbers(
-    trip: TripResponseDTO,
-    elapsed: Duration?
+    trip: TripResponseDTO
 ) {
-    val (timeValue, timeLabel) =
-        if (trip.status == "COMPLETED" && elapsed != null) {
-            formatDuration(elapsed) to "de estrada"
-        } else {
-            timeStat(trip)
-        }
+    val (timeValue, timeLabel) = timeStat(trip)
 
     Row(
         modifier = Modifier

@@ -21,6 +21,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,6 +53,7 @@ import br.dev.guisleri.mototrack.data.model.motorcycle.motorcycleType
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.ui.components.MotorcycleHeroImage
 import br.dev.guisleri.mototrack.ui.components.formatDistance
+import br.dev.guisleri.mototrack.ui.components.formatMoney
 import br.dev.guisleri.mototrack.ui.components.formatTerrain
 import br.dev.guisleri.mototrack.ui.components.formatTripDate
 import br.dev.guisleri.mototrack.ui.theme.GraphiteHeroBrush
@@ -66,12 +69,17 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun TripShareDialog(
     trip: TripResponseDTO,
+    costs: TripShareCosts?,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val graphicsLayer = rememberGraphicsLayer()
     var isPreparing by remember { mutableStateOf(false) }
+
+    // The rider may want to show the route without the money.
+    var includeCosts by remember { mutableStateOf(true) }
+    val shownCosts = costs?.takeIf { includeCosts }
 
     Dialog(
         onDismissRequest = { if (!isPreparing) onDismiss() },
@@ -93,10 +101,37 @@ internal fun TripShareDialog(
                         drawLayer(graphicsLayer)
                     }
             ) {
-                TripShareCard(trip = trip)
+                TripShareCard(trip = trip, costs = shownCosts)
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            if (costs != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Mostrar gastos na imagem",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+
+                    Switch(
+                        checked = includeCosts,
+                        onCheckedChange = { includeCosts = it },
+                        enabled = !isPreparing,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = WarmEmber,
+                            checkedThumbColor = Color.White
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             Button(
                 onClick = {
@@ -107,7 +142,7 @@ internal fun TripShareDialog(
                         try {
                             val bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
                             val uri = saveShareImage(context, bitmap, trip.id)
-                            shareTripImage(context, uri, tripShareText(trip))
+                            shareTripImage(context, uri, tripShareText(trip, shownCosts))
                             onDismiss()
                         } catch (exception: CancellationException) {
                             throw exception
@@ -163,12 +198,14 @@ internal fun TripShareDialog(
 /** The poster itself; fixed colours, so it looks the same whatever the app's theme. */
 @Composable
 private fun TripShareCard(
-    trip: TripResponseDTO
+    trip: TripResponseDTO,
+    costs: TripShareCosts?
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.78f)
+            // A second row of figures needs a little more height.
+            .aspectRatio(if (costs != null) 0.7f else 0.78f)
             .background(GraphiteHeroBrush)
             .padding(24.dp)
     ) {
@@ -256,6 +293,33 @@ private fun TripShareCard(
                     label = "data",
                     modifier = Modifier.weight(1.3f)
                 )
+            }
+
+            if (costs != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ShareFact(
+                        value = formatMoney(costs.totalCost),
+                        label = "gastos",
+                        modifier = Modifier.weight(1.3f)
+                    )
+
+                    ShareFact(
+                        value = costs.costPerKm?.let { "${formatMoney(it)}/km" } ?: "—",
+                        label = "custo por km",
+                        modifier = Modifier.weight(1.2f)
+                    )
+
+                    ShareFact(
+                        value = costs.kmPerLiter?.let { "${formatDecimal(it, 1)} km/L" } ?: "—",
+                        label = "consumo",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }

@@ -216,10 +216,6 @@ internal fun TripCostsCard(
                     }
                 }
 
-                if (trip.status == "COMPLETED") {
-                    CompletedFacts(trip = trip, stats = stats)
-                }
-
                 costs.refreshErrorMessage?.let { message ->
                     Spacer(modifier = Modifier.height(14.dp))
                     CostsError(message = message, onRetry = onRetry)
@@ -350,60 +346,6 @@ private fun CostRow(slice: CostSlice) {
             color = WarmInk,
             maxLines = 1
         )
-    }
-}
-
-/** How the finished trip turned out: only the figures that are honest for it. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun CompletedFacts(
-    trip: TripResponseDTO,
-    stats: TripLiveStats
-) {
-    val facts = buildList {
-        stats.kmPerLiter?.let { add("Consumo médio" to "${formatDecimal(it, 1)} km/L") }
-        stats.averageSpeedKmh?.let { add("Velocidade média" to "${formatDecimal(it, 0)} km/h") }
-        tripElapsed(trip, Instant.now())?.let { add("Tempo de estrada" to formatDuration(it)) }
-    }
-
-    if (facts.isEmpty()) return
-
-    Spacer(modifier = Modifier.height(18.dp))
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(WarmHairline)
-    )
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        facts.forEach { (label, value) ->
-            Column(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(WarmCanvas)
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
-            ) {
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = WarmInk
-                )
-
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = WarmMuted
-                )
-            }
-        }
     }
 }
 

@@ -35,6 +35,21 @@ class TripShareTest {
     }
 
     @Test
+    fun captionCarriesTheCostsWhenTheyAreShown() {
+        val costs = TripShareCosts(
+            totalCost = 183.71,
+            costPerKm = 2.62,
+            kmPerLiter = 24.1,
+            duration = null
+        )
+
+        val text = tripShareText(trip("COMPLETED"), costs)
+
+        assertTrue(text.contains("R$ 183,71 gastos · R$ 2,62/km · 24,1 km/L"))
+        assertTrue(!tripShareText(trip("COMPLETED")).contains("gastos"))
+    }
+
+    @Test
     fun cardLabelFollowsTheStatus() {
         assertEquals("VIAGEM CONCLUÍDA", tripShareStatusLabel("COMPLETED"))
         assertEquals("EM VIAGEM", tripShareStatusLabel("IN_PROGRESS"))

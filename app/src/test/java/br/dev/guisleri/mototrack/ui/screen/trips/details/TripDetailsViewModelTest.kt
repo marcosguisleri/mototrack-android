@@ -340,6 +340,68 @@ class TripDetailsViewModelTest {
         assertEquals(2, api.getTripCalls)
     }
 
+    @Test
+    fun completingWithTheRealDistanceCorrectsItAfterTheStatusChange() = runTest(dispatcher) {
+        val api = FakeTripApi().apply { setStatus("IN_PROGRESS") }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.completeTrip(actualDistanceKm = 82.5)
+
+        val state = viewModel.uiState.value as TripDetailsUiState.Success
+        assertEquals("COMPLETED", state.trip.status)
+        assertEquals(82.5, state.trip.distanceKm, 0.0)
+        assertNull(state.actionErrorMessage)
+        assertEquals(
+            listOf(82.5),
+            api.updateRequests.map { it.distanceKm }
+        )
+    }
+
+    @Test
+    fun completingWithoutADistanceLeavesItAlone() = runTest(dispatcher) {
+        val api = FakeTripApi().apply { setStatus("IN_PROGRESS") }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.completeTrip()
+
+        assertTrue(api.updateRequests.isEmpty())
+        assertEquals(70.0, (viewModel.uiState.value as TripDetailsUiState.Success).trip.distanceKm, 0.0)
+    }
+
+    @Test
+    fun failedDistanceCorrectionStillCompletesTheTripAndSaysSo() = runTest(dispatcher) {
+        val api = FakeTripApi().apply {
+            setStatus("IN_PROGRESS")
+            onUpdateTrip = { throw IOException("offline") }
+        }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.completeTrip(actualDistanceKm = 82.5)
+
+        val state = viewModel.uiState.value as TripDetailsUiState.Success
+        assertEquals("COMPLETED", state.trip.status)
+        assertEquals(
+            "A viagem foi concluída, mas não foi possível salvar a distância percorrida.",
+            state.actionErrorMessage
+        )
+    }
+
+    @Test
+    fun theRealDistanceSurvivesTheDateConfirmation() = runTest(dispatcher) {
+        val api = FakeTripApi().apply {
+            setStatus("IN_PROGRESS")
+            onUpdateStatus = {
+                if (statusRequests.size == 1) throw dateConflict()
+            }
+        }
+        val viewModel = TripDetailsViewModel(1, TripRepository(api))
+
+        viewModel.completeTrip(actualDistanceKm = 90.0)
+        viewModel.confirmTripDateUpdate()
+
+        assertEquals(listOf(90.0), api.updateRequests.map { it.distanceKm })
+    }
+
     private fun dateConflict() =
         HttpException(Response.error<Any>(409, "".toResponseBody()))
 
@@ -353,11 +415,19 @@ class TripDetailsViewModelTest {
             status = value
         }
 
+        val updateRequests = mutableListOf<br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO>()
+        var onUpdateTrip: suspend () -> Unit = {}
+        private var distanceKm = 70.0
+
         override suspend fun updateTrip(
             tripId: Long,
             request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO
-        ): TripResponseDTO =
-            throw AssertionError("Unexpected trip update")
+        ): TripResponseDTO {
+            onUpdateTrip()
+            updateRequests += request
+            distanceKm = request.distanceKm
+            return trip(status).copy(distanceKm = distanceKm)
+        }
 
         override suspend fun correctTripTimestamps(
             tripId: Long,
@@ -376,7 +446,7 @@ class TripDetailsViewModelTest {
 
         override suspend fun getTripById(tripId: Long): TripResponseDTO {
             getTripCalls++
-            return trip(status)
+            return trip(status).copy(distanceKm = distanceKm)
         }
 
         override suspend fun scheduleTrip(

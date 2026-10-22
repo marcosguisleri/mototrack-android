@@ -24,7 +24,9 @@ import br.dev.guisleri.mototrack.ui.theme.WarmInk
 /** The MotoTrack symbol and name, for the top of the main screens. */
 @Composable
 internal fun BrandMark(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // Smaller, for a bar that shares its width with buttons.
+    compact: Boolean = false
 ) {
     Row(
         modifier = modifier,
@@ -34,12 +36,12 @@ internal fun BrandMark(
             painter = painterResource(R.drawable.ic_mototrack_symbol),
             contentDescription = null,
             modifier = Modifier.size(
-                width = 39.dp,
-                height = 24.dp
+                width = if (compact) 30.dp else 39.dp,
+                height = if (compact) 18.dp else 24.dp
             )
         )
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(if (compact) 6.dp else 8.dp))
 
         Text(
             text = buildAnnotatedString {
@@ -50,9 +52,15 @@ internal fun BrandMark(
                     append("Track")
                 }
             },
-            style = MaterialTheme.typography.titleLarge,
+            style = if (compact) {
+                MaterialTheme.typography.titleMedium
+            } else {
+                MaterialTheme.typography.titleLarge
+            },
             fontWeight = FontWeight.ExtraBold,
-            fontStyle = FontStyle.Italic
+            fontStyle = FontStyle.Italic,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
