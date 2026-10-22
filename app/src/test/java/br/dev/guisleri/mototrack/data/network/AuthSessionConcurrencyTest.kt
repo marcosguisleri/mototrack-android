@@ -113,6 +113,16 @@ class AuthSessionConcurrencyTest {
     }
 
     @Test
+    fun unauthorizedRequestFromPreviousLoginIsNotRetriedWithNewSession() = runBlocking {
+        val oldRequest = unauthorized()
+        storage.saveTokens("access-new-login", "refresh-new-login")
+
+        assertNull(authenticator().authenticate(null, oldRequest))
+        assertEquals(0, api.refreshCalls.get())
+        assertEquals("access-new-login" to "refresh-new-login", storage.getTokens())
+    }
+
+    @Test
     fun refreshesForDifferentSessionsNeverOverlap() = runBlocking {
         val firstEntered = CountDownLatch(1)
         val releaseFirst = CountDownLatch(1)
@@ -486,6 +496,14 @@ class AuthSessionConcurrencyTest {
             .request(
                 Request.Builder()
                     .url("http://localhost/home")
+                    .tag(
+                        AuthSessionTag::class.java,
+                        AuthSessionTag(
+                            runBlocking {
+                                storage.getSessionSnapshot()?.sessionId ?: "missing-session"
+                            }
+                        )
+                    )
                     .header("Authorization", "Bearer $accessToken")
                     .build()
             )

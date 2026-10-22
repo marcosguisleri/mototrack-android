@@ -1,32 +1,28 @@
 package br.dev.guisleri.mototrack.ui.screen.auth.register
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,16 +31,25 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import br.dev.guisleri.mototrack.R
+import br.dev.guisleri.mototrack.ui.components.WarmTextField
+import br.dev.guisleri.mototrack.ui.screen.auth.AuthErrorBanner
+import br.dev.guisleri.mototrack.ui.screen.auth.AuthPrimaryButton
+import br.dev.guisleri.mototrack.ui.screen.auth.AuthScaffold
+import br.dev.guisleri.mototrack.ui.theme.WarmEmber
+import br.dev.guisleri.mototrack.ui.theme.WarmInk
+import br.dev.guisleri.mototrack.ui.theme.WarmInkSoft
+import br.dev.guisleri.mototrack.ui.theme.WarmMuted
+import br.dev.guisleri.mototrack.ui.theme.WarmSuccess
+
+private const val MIN_PASSWORD_LENGTH = 8
 
 @Composable
 fun RegisterScreen(
@@ -78,350 +83,227 @@ fun RegisterScreen(
         mutableStateOf(false)
     }
 
-    var confirmPasswordVisible by rememberSaveable {
-        mutableStateOf(false)
-    }
-
     val isLoading = uiState is RegisterUiState.Loading
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .imePadding()
-            .padding(
-                horizontal = 28.dp,
-                vertical = 32.dp
-            ),
-        horizontalAlignment = Alignment.CenterHorizontally
+    val submit: () -> Unit = {
+        onRegisterClick(
+            name,
+            email,
+            password,
+            confirmPassword
+        )
+    }
+
+    AuthScaffold(
+        headline = "Sua garagem, suas histórias.",
+        modifier = modifier,
+        heroHeight = 300.dp,
+        bikeWidthFraction = 0.58f,
+        bikeAlignment = Alignment.BottomEnd
     ) {
-
-        Spacer(
-            modifier = Modifier.height(24.dp)
-        )
-
-        Image(
-            painter = painterResource(
-                R.drawable.ic_mototrack_symbol
-            ),
-            contentDescription = null,
-            modifier = Modifier.fillMaxWidth(0.22f)
-        )
-
-        Text(
-            text = "MotoTrack",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-
-        Spacer(
-            modifier = Modifier.height(32.dp)
-        )
-
         Text(
             text = "Crie sua conta",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.ExtraBold,
+            color = WarmInk
         )
 
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
+        Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "Comece a registrar suas jornadas\ncom o MotoTrack.",
-            fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            text = "Comece a registrar suas jornadas.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = WarmInkSoft
         )
 
-        Spacer(
-            modifier = Modifier.height(32.dp)
-        )
+        Spacer(modifier = Modifier.height(22.dp))
 
-        RegisterFieldLabel(
-            text = "Nome"
-        )
-
-        OutlinedTextField(
+        WarmTextField(
             value = name,
-            onValueChange = {
-                name = it
-            },
-            placeholder = {
-                Text("Seu nome")
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Person,
-                    contentDescription = null
-                )
-            },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Text,
-                imeAction = ImeAction.Next
-            ),
-            singleLine = true,
+            onValueChange = { name = it },
+            label = "Nome",
+            leadingIcon = Icons.Outlined.Person,
+            error = null,
             enabled = !isLoading,
-            shape = RoundedCornerShape(16.dp),
-            colors = registerTextFieldColors(),
-            modifier = Modifier.fillMaxWidth()
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Words,
+                imeAction = ImeAction.Next
+            )
         )
 
-        Spacer(
-            modifier = Modifier.height(18.dp)
-        )
+        Spacer(modifier = Modifier.height(12.dp))
 
-        RegisterFieldLabel(
-            text = "E-mail"
-        )
-
-        OutlinedTextField(
+        WarmTextField(
             value = email,
-            onValueChange = {
-                email = it
-            },
-            placeholder = {
-                Text("seu@email.com")
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Email,
-                    contentDescription = null
-                )
-            },
+            onValueChange = { email = it },
+            label = "E-mail",
+            leadingIcon = Icons.Outlined.Email,
+            error = null,
+            enabled = !isLoading,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Email,
                 imeAction = ImeAction.Next
-            ),
-            singleLine = true,
-            enabled = !isLoading,
-            shape = RoundedCornerShape(16.dp),
-            colors = registerTextFieldColors(),
-            modifier = Modifier.fillMaxWidth()
+            )
         )
 
-        Spacer(
-            modifier = Modifier.height(18.dp)
-        )
+        Spacer(modifier = Modifier.height(12.dp))
 
-        RegisterFieldLabel(
-            text = "Senha"
-        )
-
-        OutlinedTextField(
+        WarmTextField(
             value = password,
-            onValueChange = {
-                password = it
-            },
-            placeholder = {
-                Text("Crie uma senha")
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Lock,
-                    contentDescription = null
-                )
-            },
-            trailingIcon = {
-                IconButton(
-                    onClick = {
-                        passwordVisible = !passwordVisible
-                    },
-                    enabled = !isLoading
-                ) {
-                    Icon(
-                        imageVector = if (passwordVisible) {
-                            Icons.Outlined.VisibilityOff
-                        } else {
-                            Icons.Outlined.Visibility
-                        },
-                        contentDescription = if (passwordVisible) {
-                            "Ocultar senha"
-                        } else {
-                            "Mostrar senha"
-                        }
-                    )
-                }
-            },
-            visualTransformation = if (passwordVisible) {
-                VisualTransformation.None
-            } else {
-                PasswordVisualTransformation()
-            },
+            onValueChange = { password = it },
+            label = "Senha",
+            leadingIcon = Icons.Outlined.Lock,
+            error = null,
+            enabled = !isLoading,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
                 imeAction = ImeAction.Next
             ),
-            singleLine = true,
-            enabled = !isLoading,
-            shape = RoundedCornerShape(16.dp),
-            colors = registerTextFieldColors(),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(
-            modifier = Modifier.height(18.dp)
-        )
-
-        RegisterFieldLabel(
-            text = "Confirmar senha"
-        )
-
-        OutlinedTextField(
-            value = confirmPassword,
-            onValueChange = {
-                confirmPassword = it
-            },
-            placeholder = {
-                Text("Repita sua senha")
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Lock,
-                    contentDescription = null
-                )
-            },
+            visualTransformation = passwordTransformation(passwordVisible),
             trailingIcon = {
-                IconButton(
-                    onClick = {
-                        confirmPasswordVisible =
-                            !confirmPasswordVisible
-                    },
-                    enabled = !isLoading
-                ) {
-                    Icon(
-                        imageVector = if (confirmPasswordVisible) {
-                            Icons.Outlined.VisibilityOff
-                        } else {
-                            Icons.Outlined.Visibility
-                        },
-                        contentDescription =
-                            if (confirmPasswordVisible) {
-                                "Ocultar senha"
-                            } else {
-                                "Mostrar senha"
-                            }
-                    )
-                }
-            },
-            visualTransformation =
-                if (confirmPasswordVisible) {
-                    VisualTransformation.None
-                } else {
-                    PasswordVisualTransformation()
-                },
+                PasswordVisibilityToggle(
+                    visible = passwordVisible,
+                    enabled = !isLoading,
+                    onToggle = { passwordVisible = !passwordVisible }
+                )
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        WarmTextField(
+            value = confirmPassword,
+            onValueChange = { confirmPassword = it },
+            label = "Confirmar senha",
+            leadingIcon = Icons.Outlined.Lock,
+            error = null,
+            enabled = !isLoading,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
                 imeAction = ImeAction.Done
             ),
-            singleLine = true,
-            enabled = !isLoading,
-            shape = RoundedCornerShape(16.dp),
-            colors = registerTextFieldColors(),
-            modifier = Modifier.fillMaxWidth()
+            keyboardActions = KeyboardActions(
+                onDone = { submit() }
+            ),
+            visualTransformation = passwordTransformation(passwordVisible)
         )
 
-        if (uiState is RegisterUiState.Error) {
+        if (password.isNotEmpty() || confirmPassword.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Spacer(
-                modifier = Modifier.height(16.dp)
+            PasswordRule(
+                text = "Pelo menos $MIN_PASSWORD_LENGTH caracteres",
+                satisfied = password.length >= MIN_PASSWORD_LENGTH
             )
 
-            Text(
-                text = uiState.message,
-                color = MaterialTheme.colorScheme.error,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (confirmPassword.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+
+                PasswordRule(
+                    text = "As senhas coincidem",
+                    satisfied = password == confirmPassword
+                )
+            }
         }
 
-        Spacer(
-            modifier = Modifier.height(28.dp)
+        (uiState as? RegisterUiState.Error)?.let { error ->
+            Spacer(modifier = Modifier.height(14.dp))
+
+            AuthErrorBanner(message = error.message)
+        }
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        AuthPrimaryButton(
+            text = "Criar conta",
+            isLoading = isLoading,
+            onClick = submit
         )
 
-        Button(
-            onClick = {
-                onRegisterClick(
-                    name,
-                    email,
-                    password,
-                    confirmPassword
-                )
-            },
-            enabled = !isLoading,
-            modifier = Modifier.fillMaxWidth()
+        Spacer(modifier = Modifier.height(22.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Text(
+                text = "Já tem uma conta? ",
+                style = MaterialTheme.typography.bodyMedium,
+                color = WarmInkSoft
+            )
 
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
-            } else {
+            Box(
+                modifier = Modifier
+                    .clickable(
+                        enabled = !isLoading,
+                        role = Role.Button,
+                        onClick = onLoginClick
+                    )
+                    .padding(vertical = 8.dp)
+            ) {
                 Text(
-                    text = "Criar conta",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
+                    text = "Entrar",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = WarmEmber
                 )
             }
         }
+    }
+}
 
-        Spacer(
-            modifier = Modifier.height(28.dp)
-        )
+private fun passwordTransformation(visible: Boolean): VisualTransformation =
+    if (visible) VisualTransformation.None else PasswordVisualTransformation()
 
-        Text(
-            text = "Já tem uma conta?",
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(
-            modifier = Modifier.height(4.dp)
-        )
-
-        Text(
-            text = "Entrar",
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clickable(
-                enabled = !isLoading
-            ) {
-                onLoginClick()
-            }
-        )
-
-        Spacer(
-            modifier = Modifier.height(24.dp)
+@Composable
+private fun PasswordVisibilityToggle(
+    visible: Boolean,
+    enabled: Boolean,
+    onToggle: () -> Unit
+) {
+    IconButton(
+        onClick = onToggle,
+        enabled = enabled
+    ) {
+        Icon(
+            imageVector = if (visible) {
+                Icons.Outlined.VisibilityOff
+            } else {
+                Icons.Outlined.Visibility
+            },
+            contentDescription = if (visible) "Ocultar senha" else "Mostrar senha",
+            tint = WarmMuted
         )
     }
 }
 
 @Composable
-private fun RegisterFieldLabel(
-    text: String
+private fun PasswordRule(
+    text: String,
+    satisfied: Boolean
 ) {
-    Text(
-        text = text,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 8.dp),
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.onBackground
-    )
-}
+    Row(
+        modifier = Modifier.padding(start = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = if (satisfied) {
+                Icons.Filled.CheckCircle
+            } else {
+                Icons.Outlined.RadioButtonUnchecked
+            },
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = if (satisfied) WarmSuccess else WarmMuted
+        )
 
-@Composable
-private fun registerTextFieldColors() =
-    OutlinedTextFieldDefaults.colors(
-        focusedContainerColor =
-            MaterialTheme.colorScheme.surface,
-        unfocusedContainerColor =
-            MaterialTheme.colorScheme.surface,
-        focusedBorderColor =
-            MaterialTheme.colorScheme.primary,
-        unfocusedBorderColor =
-            MaterialTheme.colorScheme.outlineVariant
-    )
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (satisfied) WarmSuccess else WarmMuted
+        )
+    }
+}

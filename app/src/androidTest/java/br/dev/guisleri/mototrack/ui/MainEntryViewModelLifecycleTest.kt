@@ -17,12 +17,24 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import br.dev.guisleri.mototrack.data.model.home.HomeResponseDTO
+import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO
+import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleStatisticsResponseDTO
+import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
+import br.dev.guisleri.mototrack.data.model.trip.UpdateTripStatusRequestDTO
 import br.dev.guisleri.mototrack.data.network.HomeApiService
+import br.dev.guisleri.mototrack.data.remote.motorcycle.MotorcycleApiService
+import br.dev.guisleri.mototrack.data.remote.trip.TripApiService
 import br.dev.guisleri.mototrack.data.repository.HomeRepository
+import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
+import br.dev.guisleri.mototrack.data.repository.TripRepository
 import br.dev.guisleri.mototrack.ui.navigation.AppDestination
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModel
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.main.MainScreen
+import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
+import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModelFactory
+import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModel
+import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModelFactory
 import br.dev.guisleri.mototrack.ui.theme.MotoTrackTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
@@ -46,13 +58,52 @@ class MainEntryViewModelLifecycleTest {
         lateinit var backStack: NavBackStack<NavKey>
         val repository = HomeRepository(object : HomeApiService {
             override suspend fun getHome() = HomeResponseDTO(
+                inProgressTrip = null,
                 nextTrip = null,
                 lastCompletedTrip = null,
                 totalCompletedDistanceKm = 0.0,
+                distanceThisYearKm = 0.0,
                 completedTrips = 0,
                 motorcycleCount = requests.incrementAndGet().toLong()
             )
         })
+        val motorcycleRepository = MotorcycleRepository(
+            object : MotorcycleApiService {
+                override suspend fun getMotorcycles(): List<MotorcycleResponseDTO> =
+                    emptyList()
+
+                override suspend fun getMotorcycleStatistics(
+                    motorcycleId: Long
+                ): MotorcycleStatisticsResponseDTO =
+                    error("Statistics should not be requested for an empty list")
+            }
+        )
+        val tripRepository = TripRepository(
+            object : TripApiService {
+                override suspend fun updateTrip(
+                    tripId: Long,
+                    request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO
+                ): TripResponseDTO =
+                    throw AssertionError("Unexpected trip update")
+
+                override suspend fun correctTripTimestamps(
+                    tripId: Long,
+                    request: br.dev.guisleri.mototrack.data.model.trip.UpdateTripTimestampsRequestDTO
+                ): TripResponseDTO =
+                    throw AssertionError("Unexpected timestamps correction")
+
+                override suspend fun getTrips(): List<TripResponseDTO> =
+                    emptyList()
+
+                override suspend fun getTripById(tripId: Long): TripResponseDTO =
+                    error("Trip details should not be requested for an empty list")
+
+                override suspend fun updateTripStatus(
+                    tripId: Long,
+                    request: UpdateTripStatusRequestDTO
+                ) = error("Trip status should not be updated in this test")
+            }
+        )
         val restoration = StateRestorationTester(compose)
 
         restoration.setContent {
@@ -72,6 +123,12 @@ class MainEntryViewModelLifecycleTest {
                                 val homeViewModel: HomeViewModel = viewModel(
                                     factory = HomeViewModelFactory(repository)
                                 )
+                                val motorcyclesViewModel: MotorcyclesViewModel = viewModel(
+                                    factory = MotorcyclesViewModelFactory(motorcycleRepository)
+                                )
+                                val tripsViewModel: TripsViewModel = viewModel(
+                                    factory = TripsViewModelFactory(tripRepository)
+                                )
                                 SideEffect {
                                     if (homeViewModel !in instances) {
                                         instances.add(homeViewModel)
@@ -82,6 +139,9 @@ class MainEntryViewModelLifecycleTest {
                                 }
                                 MainScreen(
                                     homeViewModel = homeViewModel,
+                                    motorcyclesViewModel = motorcyclesViewModel,
+                                    tripsViewModel = tripsViewModel,
+                                    tripRepository = tripRepository,
                                     onLogoutClick = {
                                         stack.clear()
                                         stack.add(AppDestination.LOGIN)

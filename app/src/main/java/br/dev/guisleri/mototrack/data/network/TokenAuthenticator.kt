@@ -10,8 +10,8 @@ import okhttp3.Authenticator
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Route
-import java.io.IOException
 import retrofit2.HttpException
+import java.io.IOException
 
 class TokenAuthenticator(
     private val authApiService: AuthApiService,
@@ -19,7 +19,6 @@ class TokenAuthenticator(
 ) : Authenticator {
 
     private companion object {
-        // Clients recreated with the Activity must coordinate the same session.
         val refreshMutex = Mutex()
     }
 
@@ -27,87 +26,68 @@ class TokenAuthenticator(
         route: Route?,
         response: Response
     ): Request? {
-
         if (responseCount(response) >= 2) {
             return null
         }
 
         val newAccessToken = runBlocking {
             refreshMutex.withLock {
-                val (accessToken, refreshToken) = tokenStorage.getTokens()
+                val session = tokenStorage.getSessionSnapshot()
+                    ?: return@withLock null
+                val requestSessionId = response.request
+                    .tag(AuthSessionTag::class.java)
+                    ?.sessionId
 
-                if (accessToken.isNullOrBlank() || refreshToken.isNullOrBlank()) {
+                if (requestSessionId != null && requestSessionId != session.sessionId) {
                     return@withLock null
                 }
 
-                if (response.request.header("Authorization") != "Bearer $accessToken") {
-                    return@withLock accessToken
+                if (response.request.header("Authorization") != "Bearer ${session.accessToken}") {
+                    return@withLock session.accessToken
                 }
 
                 try {
                     val tokens = authApiService.refresh(
                         RefreshTokenRequestDTO(
-                            refreshToken = refreshToken
+                            refreshToken = session.refreshToken
                         )
                     )
-
                     val saved = tokenStorage.saveTokensIfRefreshTokenMatches(
-                        expectedRefreshToken = refreshToken,
+                        expectedRefreshToken = session.refreshToken,
                         accessToken = tokens.accessToken,
                         refreshToken = tokens.refreshToken
                     )
-
                     if (saved) tokens.accessToken else null
-
                 } catch (exception: CancellationException) {
                     throw exception
-
                 } catch (exception: HttpException) {
-
                     if (exception.code() == 401) {
-                        tokenStorage.clearTokensIfRefreshTokenMatches(refreshToken)
+                        tokenStorage.clearTokensIfRefreshTokenMatches(session.refreshToken)
                         null
                     } else {
                         throw IOException("Não foi possível renovar a sessão.", exception)
                     }
-
                 } catch (exception: IOException) {
-
                     throw exception
-
                 } catch (exception: Exception) {
-
                     throw IOException("Não foi possível renovar a sessão.", exception)
                 }
             }
-        }
+        } ?: return null
 
-        if (newAccessToken == null) {
-            return null
-        }
-
-        return response
-            .request
+        return response.request
             .newBuilder()
-            .header(
-                "Authorization",
-                "Bearer $newAccessToken"
-            )
+            .header("Authorization", "Bearer $newAccessToken")
             .build()
     }
 
-    private fun responseCount(
-        response: Response
-    ): Int {
-
+    private fun responseCount(response: Response): Int {
         var currentResponse: Response? = response
         var count = 1
-
         while (currentResponse?.priorResponse != null) {
             count++
             currentResponse = currentResponse.priorResponse
         }
-
         return count
     }
 }

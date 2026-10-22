@@ -15,7 +15,7 @@ import br.dev.guisleri.mototrack.ui.theme.MotoTrackTheme
     widthDp = 360,
     heightDp = 640,
     showBackground = true,
-    backgroundColor = 0xFFF5F7FA
+    backgroundColor = 0xFFF7F4EF
 )
 @Composable
 private fun HomeLoadingPreview() {
@@ -30,7 +30,7 @@ private fun HomeLoadingPreview() {
     widthDp = 360,
     heightDp = 640,
     showBackground = true,
-    backgroundColor = 0xFFF5F7FA
+    backgroundColor = 0xFFF7F4EF
 )
 @Composable
 private fun HomeErrorPreview() {
@@ -47,7 +47,7 @@ private fun HomeErrorPreview() {
     widthDp = 360,
     heightDp = 800,
     showBackground = true,
-    backgroundColor = 0xFFF5F7FA
+    backgroundColor = 0xFFF7F4EF
 )
 @Composable
 private fun HomeNoMotorcyclePreview() {
@@ -67,7 +67,7 @@ private fun HomeNoMotorcyclePreview() {
     widthDp = 360,
     heightDp = 800,
     showBackground = true,
-    backgroundColor = 0xFFF5F7FA
+    backgroundColor = 0xFFF7F4EF
 )
 @Composable
 private fun HomeInProgressPreview() {
@@ -99,7 +99,7 @@ private fun HomeInProgressPreview() {
     widthDp = 360,
     heightDp = 800,
     showBackground = true,
-    backgroundColor = 0xFFF5F7FA
+    backgroundColor = 0xFFF7F4EF
 )
 @Composable
 private fun HomeUpcomingTripPreview() {
@@ -124,7 +124,7 @@ private fun HomeUpcomingTripPreview() {
     widthDp = 360,
     heightDp = 800,
     showBackground = true,
-    backgroundColor = 0xFFF5F7FA
+    backgroundColor = 0xFFF7F4EF
 )
 @Composable
 private fun HomeNoUpcomingTripPreview() {
@@ -145,7 +145,7 @@ private fun HomeNoUpcomingTripPreview() {
     heightDp = 640,
     fontScale = 2f,
     showBackground = true,
-    backgroundColor = 0xFFF5F7FA
+    backgroundColor = 0xFFF7F4EF
 )
 @Composable
 private fun HomeCompactLargeFontPreview() {
@@ -180,8 +180,12 @@ private fun HomePreview(
         HomeScreen(
             uiState = uiState,
             onRetryClick = {},
+            onRefresh = {},
             onAddMotorcycleClick = {},
-            onTripsClick = {}
+            onTripsClick = {},
+            onTripClick = {},
+            onPlanTripClick = {},
+            onRegisterCompletedTripClick = {}
         )
     }
 }
