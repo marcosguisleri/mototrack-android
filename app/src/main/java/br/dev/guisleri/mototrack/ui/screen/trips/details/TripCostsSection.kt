@@ -703,6 +703,7 @@ internal fun TripRecordEditorDialog(
                                 .forEach { option ->
                                     ChoicePill(
                                         label = option.label,
+                                        icon = option.icon,
                                         selected = option == category,
                                         enabled = !isSaving,
                                         onClick = { category = option }
