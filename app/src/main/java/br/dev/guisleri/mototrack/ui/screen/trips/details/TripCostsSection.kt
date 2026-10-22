@@ -541,6 +541,12 @@ internal fun TripRecordEditorDialog(
 ) {
     val isFuel = editor is TripRecordEditor.NewFuel || editor is TripRecordEditor.EditFuel
     val isEditing = editor is TripRecordEditor.EditFuel || editor is TripRecordEditor.EditExpense
+    // A toll has a window of its own; the other expenses never offer it as a category.
+    val isToll = !isFuel && when (editor) {
+        is TripRecordEditor.NewExpense -> editor.category == ExpenseCategory.TOLL
+        is TripRecordEditor.EditExpense -> ExpenseCategory.fromApi(editor.expense.category) == ExpenseCategory.TOLL
+        else -> false
+    }
 
     var liters by remember(editor) {
         mutableStateOf(
@@ -612,7 +618,9 @@ internal fun TripRecordEditorDialog(
                     Text(
                         text = when {
                             isFuel && isEditing -> "Corrigir abastecimento"
-                            isFuel -> "Novo abastecimento"
+                            isFuel -> "Abastecimento"
+                            isToll && isEditing -> "Corrigir pedágio"
+                            isToll -> "Pedágio"
                             isEditing -> "Corrigir gasto"
                             else -> "Novo gasto"
                         },
@@ -621,6 +629,23 @@ internal fun TripRecordEditorDialog(
                         color = WarmInk
                     )
                 }
+
+                Text(
+                    text = when {
+                        isFuel ->
+                            "Informe os litros e o valor pago. O preço por litro e o " +
+                                "consumo da viagem são calculados para você."
+
+                        isToll ->
+                            "Anote a passagem por uma praça de pedágio. Moto isenta? " +
+                                "Use Isento: a passagem conta, com R$ 0,00."
+
+                        else ->
+                            "Alimentação, estacionamento, hospedagem e outros gastos da viagem."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = WarmInkSoft
+                )
 
                 if (isFuel) {
                     WarmTextField(
@@ -668,17 +693,21 @@ internal fun TripRecordEditorDialog(
                         )
                     }
                 } else {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ExpenseCategory.entries.forEach { option ->
-                            ChoicePill(
-                                label = option.label,
-                                selected = option == category,
-                                enabled = !isSaving,
-                                onClick = { category = option }
-                            )
+                    if (!isToll) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ExpenseCategory.entries
+                                .filter { it != ExpenseCategory.TOLL }
+                                .forEach { option ->
+                                    ChoicePill(
+                                        label = option.label,
+                                        selected = option == category,
+                                        enabled = !isSaving,
+                                        onClick = { category = option }
+                                    )
+                                }
                         }
                     }
 
@@ -699,7 +728,7 @@ internal fun TripRecordEditorDialog(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                     )
 
-                    if (category == ExpenseCategory.TOLL) {
+                    if (isToll) {
                         // Motorcycles are often exempt: the passage still counts.
                         ChoicePill(
                             label = "Isento (R$ 0,00)",
