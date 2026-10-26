@@ -1,11 +1,21 @@
 package br.dev.guisleri.mototrack.ui.screen.trips.create
 
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO
+import br.dev.guisleri.mototrack.data.place.City
 import java.time.LocalDate
 
 enum class TripCreateMode {
     PLANNED,
     COMPLETED
+}
+
+/** How the distance in the form came to be, when the app filled it in. */
+enum class DistanceSource {
+    /** The length of the drive between the two cities. */
+    ROUTE,
+
+    /** A straight line scaled to roads, when no route could be had. */
+    ESTIMATE
 }
 
 enum class TripCreateTerrain(
@@ -66,7 +76,14 @@ data class TripCreateUiState(
     val editingStatus: String? = null,
     val isLoadingTrip: Boolean = false,
     val loadTripErrorMessage: String? = null,
-    val isUpdated: Boolean = false
+    val isUpdated: Boolean = false,
+    // Set when the origin or destination is a city picked from the suggestions.
+    val originCity: City? = null,
+    val destinationCity: City? = null,
+    val originSuggestions: List<City> = emptyList(),
+    val destinationSuggestions: List<City> = emptyList(),
+    val isCalculatingDistance: Boolean = false,
+    val distanceSource: DistanceSource? = null
 ) {
     val isEditing: Boolean get() = editingTripId != null
 }

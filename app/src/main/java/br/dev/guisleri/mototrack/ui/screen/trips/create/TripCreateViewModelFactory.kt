@@ -3,6 +3,7 @@ package br.dev.guisleri.mototrack.ui.screen.trips.create
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import br.dev.guisleri.mototrack.data.local.MotorcyclePreferences
+import br.dev.guisleri.mototrack.data.place.PlaceServices
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 import br.dev.guisleri.mototrack.data.repository.TripRepository
 
@@ -12,7 +13,8 @@ class TripCreateViewModelFactory(
     private val motorcyclePreferences: MotorcyclePreferences,
     private val initialMode: TripCreateMode = TripCreateMode.PLANNED,
     private val requestedMotorcycleId: Long? = null,
-    private val editingTripId: Long? = null
+    private val editingTripId: Long? = null,
+    private val places: PlaceServices? = null
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -26,7 +28,8 @@ class TripCreateViewModelFactory(
                 motorcyclePreferences = motorcyclePreferences,
                 initialMode = initialMode,
                 requestedMotorcycleId = requestedMotorcycleId,
-                editingTripId = editingTripId
+                editingTripId = editingTripId,
+                places = places
             ) as T
         }
 

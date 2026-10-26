@@ -82,7 +82,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -92,6 +95,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO
 import br.dev.guisleri.mototrack.ui.components.CircleActionButton
+import br.dev.guisleri.mototrack.data.place.City
 import br.dev.guisleri.mototrack.ui.components.RoadDecoration
 import br.dev.guisleri.mototrack.ui.components.motorcycleColor
 import br.dev.guisleri.mototrack.ui.theme.GraphiteHeroBrush
@@ -124,6 +128,8 @@ fun TripCreateScreen(
     onModeSelected: (TripCreateMode) -> Unit,
     onOriginChange: (String) -> Unit,
     onDestinationChange: (String) -> Unit,
+    onOriginCitySelected: (City) -> Unit,
+    onDestinationCitySelected: (City) -> Unit,
     onSwapRouteClick: () -> Unit,
     onDistanceChange: (String) -> Unit,
     onApplyDistanceSuggestionClick: () -> Unit,
@@ -194,6 +200,8 @@ fun TripCreateScreen(
                 onDestinationFocused = { lastFocusedField = PlaceField.DESTINATION },
                 onOriginChange = onOriginChange,
                 onDestinationChange = onDestinationChange,
+                onOriginCitySelected = onOriginCitySelected,
+                onDestinationCitySelected = onDestinationCitySelected,
                 onSwapRouteClick = onSwapRouteClick,
                 onDistanceChange = onDistanceChange,
                 onApplyDistanceSuggestionClick = onApplyDistanceSuggestionClick,
@@ -542,6 +550,8 @@ private fun RouteSection(
     onDestinationFocused: () -> Unit,
     onOriginChange: (String) -> Unit,
     onDestinationChange: (String) -> Unit,
+    onOriginCitySelected: (City) -> Unit,
+    onDestinationCitySelected: (City) -> Unit,
     onSwapRouteClick: () -> Unit,
     onDistanceChange: (String) -> Unit,
     onApplyDistanceSuggestionClick: () -> Unit,
@@ -572,6 +582,11 @@ private fun RouteSection(
                     }
                 )
 
+                CitySuggestions(
+                    cities = uiState.originSuggestions,
+                    onCityClick = onOriginCitySelected
+                )
+
                 WarmTextField(
                     value = uiState.destination,
                     onValueChange = onDestinationChange,
@@ -588,6 +603,11 @@ private fun RouteSection(
                         .onFocusChanged {
                             if (it.isFocused) onDestinationFocused()
                         }
+                )
+
+                CitySuggestions(
+                    cities = uiState.destinationSuggestions,
+                    onCityClick = onDestinationCitySelected
                 )
             }
 
@@ -634,11 +654,36 @@ private fun RouteSection(
             suffix = "km",
             error = uiState.distanceError,
             enabled = !uiState.isSubmitting,
+            trailingIcon = if (uiState.isCalculatingDistance) {
+                {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = WarmEmber
+                    )
+                }
+            } else {
+                null
+            },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Decimal,
                 imeAction = ImeAction.Done
             )
         )
+
+        if (uiState.isCalculatingDistance) {
+            DistanceNote(text = "Calculando a rota entre as cidades...")
+        } else {
+            when (uiState.distanceSource) {
+                DistanceSource.ROUTE ->
+                    DistanceNote(text = "Distância calculada pela rota entre as cidades. Você pode ajustar.")
+
+                DistanceSource.ESTIMATE ->
+                    DistanceNote(text = "Estimativa em linha reta: não foi possível traçar a rota. Ajuste se souber o valor.")
+
+                null -> Unit
+            }
+        }
 
         uiState.distanceSuggestion?.let { suggestion ->
             SuggestionPill(
@@ -647,6 +692,79 @@ private fun RouteSection(
             )
         }
     }
+}
+
+/** The cities that match what was typed; tapping one fills the field with it. */
+@Composable
+private fun CitySuggestions(
+    cities: List<City>,
+    onCityClick: (City) -> Unit
+) {
+    if (cities.isEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(WarmCanvas)
+            .border(BorderStroke(1.dp, WarmHairline), RoundedCornerShape(16.dp))
+    ) {
+        cities.forEachIndexed { index, city ->
+            if (index > 0) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(WarmHairline)
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        onClickLabel = "Escolher ${city.label}",
+                        role = Role.Button,
+                        onClick = { onCityClick(city) }
+                    )
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Place,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = WarmEmber
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WarmInk)) {
+                            append(city.name)
+                        }
+                        withStyle(SpanStyle(color = WarmMuted)) {
+                            append(", ${city.uf}")
+                        }
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DistanceNote(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.padding(start = 4.dp),
+        style = MaterialTheme.typography.bodySmall,
+        color = WarmMuted
+    )
 }
 
 @Composable

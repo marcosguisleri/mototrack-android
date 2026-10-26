@@ -11,6 +11,15 @@ import br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.UpdateTripStatusRequestDTO
 import br.dev.guisleri.mototrack.data.local.MotorcyclePreferences
 import br.dev.guisleri.mototrack.data.remote.motorcycle.MotorcycleApiService
+import br.dev.guisleri.mototrack.data.place.ARARAS
+import br.dev.guisleri.mototrack.data.place.City
+import br.dev.guisleri.mototrack.data.place.CityCatalog
+import br.dev.guisleri.mototrack.data.place.FakeGeocodingApi
+import br.dev.guisleri.mototrack.data.place.FakeIbgeApi
+import br.dev.guisleri.mototrack.data.place.FakeOsrmApi
+import br.dev.guisleri.mototrack.data.place.LEME
+import br.dev.guisleri.mototrack.data.place.PlaceServices
+import br.dev.guisleri.mototrack.data.place.RouteDistanceService
 import br.dev.guisleri.mototrack.data.remote.trip.TripApiService
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 import br.dev.guisleri.mototrack.data.repository.TripRepository
@@ -30,6 +39,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.File
 import java.io.IOException
 import java.time.LocalDate
 
@@ -298,14 +308,189 @@ class TripCreateViewModelTest {
         motorcycles: List<MotorcycleResponseDTO>,
         preferences: FakeMotorcyclePreferences = FakeMotorcyclePreferences(),
         requestedMotorcycleId: Long? = null,
-        editingTripId: Long? = null
+        editingTripId: Long? = null,
+        places: PlaceServices? = null
     ) = TripCreateViewModel(
         tripRepository = TripRepository(tripApi),
         motorcycleRepository = MotorcycleRepository(FakeMotorcycleApi(motorcycles)),
         motorcyclePreferences = preferences,
         requestedMotorcycleId = requestedMotorcycleId,
-        editingTripId = editingTripId
+        editingTripId = editingTripId,
+        places = places
     )
+
+    private fun places(
+        osrm: FakeOsrmApi = FakeOsrmApi(),
+        geocoding: FakeGeocodingApi = FakeGeocodingApi()
+    ): PlaceServices {
+        val ibge = FakeIbgeApi()
+        val cache = File(System.getProperty("java.io.tmpdir"), "mototrack-test-${System.nanoTime()}/cities.json")
+
+        return PlaceServices(
+            cities = CityCatalog(ibge, cache, ioDispatcher = dispatcher),
+            routes = RouteDistanceService(geocoding, ibge, osrm)
+        )
+    }
+
+    @Test
+    fun suggestsCitiesWhileTheRiderTypes() = runTest(dispatcher) {
+        val viewModel = viewModel(motorcycles = listOf(motorcycle(1)), places = places())
+
+        viewModel.onOriginChange("ara")
+
+        assertEquals(
+            listOf("Araras", "Araras", "Arapongas"),
+            viewModel.uiState.value.originSuggestions.map { it.name }
+        )
+        assertTrue(viewModel.uiState.value.destinationSuggestions.isEmpty())
+    }
+
+    @Test
+    fun pickingBothCitiesFillsTheDistanceByRoute() = runTest(dispatcher) {
+        val viewModel = viewModel(motorcycles = listOf(motorcycle(1)), places = places())
+
+        viewModel.onOriginCitySelected(ARARAS)
+        viewModel.onDestinationCitySelected(LEME)
+
+        val state = viewModel.uiState.value
+        assertEquals("Araras, SP", state.origin)
+        assertEquals("Leme, SP", state.destination)
+        assertEquals("21,9", state.distance)
+        assertEquals(DistanceSource.ROUTE, state.distanceSource)
+        assertFalse(state.isCalculatingDistance)
+        assertTrue(state.originSuggestions.isEmpty())
+    }
+
+    @Test
+    fun theRidersOwnDistanceIsNeverOverwritten() = runTest(dispatcher) {
+        val viewModel = viewModel(motorcycles = listOf(motorcycle(1)), places = places())
+
+        viewModel.onDistanceChange("30")
+        viewModel.onOriginCitySelected(ARARAS)
+        viewModel.onDestinationCitySelected(LEME)
+
+        assertEquals("30", viewModel.uiState.value.distance)
+        assertNull(viewModel.uiState.value.distanceSource)
+    }
+
+    @Test
+    fun typingTheDistanceAfterwardsMakesItTheRiders() = runTest(dispatcher) {
+        val viewModel = viewModel(motorcycles = listOf(motorcycle(1)), places = places())
+
+        viewModel.onOriginCitySelected(ARARAS)
+        viewModel.onDestinationCitySelected(LEME)
+        viewModel.onDistanceChange("25")
+        viewModel.onDestinationCitySelected(City(5, "Rio Claro", "SP"))
+
+        assertEquals("25", viewModel.uiState.value.distance)
+    }
+
+    @Test
+    fun changingACityRecalculatesTheDistanceTheAppFilledIn() = runTest(dispatcher) {
+        val osrm = FakeOsrmApi(kilometres = 21.9)
+        val viewModel = viewModel(motorcycles = listOf(motorcycle(1)), places = places(osrm = osrm))
+
+        viewModel.onOriginCitySelected(ARARAS)
+        viewModel.onDestinationCitySelected(LEME)
+        assertEquals("21,9", viewModel.uiState.value.distance)
+
+        // Swapping the cities back and forth recalculates nothing the rider typed, but a
+        // new destination is a new route.
+        viewModel.onDestinationCitySelected(ARARAS.copy(id = 99, name = "Leme", uf = "SP"))
+
+        assertEquals(2, osrm.requests.size)
+        assertEquals("21,9", viewModel.uiState.value.distance)
+    }
+
+    @Test
+    fun aRouteThatCannotBeCalculatedDoesNotKeepTheOldDistance() = runTest(dispatcher) {
+        val viewModel = viewModel(motorcycles = listOf(motorcycle(1)), places = places())
+
+        viewModel.onOriginCitySelected(ARARAS)
+        viewModel.onDestinationCitySelected(LEME)
+        assertEquals("21,9", viewModel.uiState.value.distance)
+
+        // The fake geocoder cannot place Rio Claro, so there is no route for it.
+        viewModel.onDestinationCitySelected(City(5, "Rio Claro", "SP"))
+
+        assertEquals("", viewModel.uiState.value.distance)
+        assertNull(viewModel.uiState.value.distanceSource)
+    }
+
+    @Test
+    fun editingACityOutOfTheListTakesTheAutomaticDistanceAway() = runTest(dispatcher) {
+        val viewModel = viewModel(motorcycles = listOf(motorcycle(1)), places = places())
+
+        viewModel.onOriginCitySelected(ARARAS)
+        viewModel.onDestinationCitySelected(LEME)
+        viewModel.onDestinationChange("Leme, SP e mais um pouco")
+
+        val state = viewModel.uiState.value
+        assertEquals("", state.distance)
+        assertNull(state.distanceSource)
+        assertNull(state.destinationCity)
+    }
+
+    @Test
+    fun withoutARouteTheDistanceIsAnEstimate() = runTest(dispatcher) {
+        val osrm = FakeOsrmApi().apply { failure = IOException("busy") }
+        val viewModel = viewModel(motorcycles = listOf(motorcycle(1)), places = places(osrm = osrm))
+
+        viewModel.onOriginCitySelected(ARARAS)
+        viewModel.onDestinationCitySelected(LEME)
+
+        assertEquals(DistanceSource.ESTIMATE, viewModel.uiState.value.distanceSource)
+        assertTrue(viewModel.uiState.value.distance.isNotBlank())
+    }
+
+    @Test
+    fun offlineLeavesTheDistanceToTheRider() = runTest(dispatcher) {
+        val geocoding = FakeGeocodingApi().apply { failure = IOException("offline") }
+        val viewModel = viewModel(
+            motorcycles = listOf(motorcycle(1)),
+            places = places(geocoding = geocoding)
+        )
+
+        viewModel.onOriginCitySelected(ARARAS)
+        viewModel.onDestinationCitySelected(LEME)
+
+        assertEquals("", viewModel.uiState.value.distance)
+        assertFalse(viewModel.uiState.value.isCalculatingDistance)
+    }
+
+    @Test
+    fun aPlaceTypedInFullIsRecognisedAsACity() = runTest(dispatcher) {
+        val viewModel = viewModel(motorcycles = listOf(motorcycle(1)), places = places())
+
+        // As when a recent place is tapped.
+        viewModel.onOriginChange("Araras, SP")
+
+        assertEquals(ARARAS, viewModel.uiState.value.originCity)
+        assertTrue(viewModel.uiState.value.originSuggestions.isEmpty())
+    }
+
+    @Test
+    fun swappingTheRouteSwapsTheCitiesAndKeepsTheDistance() = runTest(dispatcher) {
+        val viewModel = viewModel(motorcycles = listOf(motorcycle(1)), places = places())
+
+        viewModel.onOriginCitySelected(ARARAS)
+        viewModel.onDestinationCitySelected(LEME)
+        viewModel.swapRoute()
+
+        val state = viewModel.uiState.value
+        assertEquals(LEME, state.originCity)
+        assertEquals(ARARAS, state.destinationCity)
+        assertEquals("21,9", state.distance)
+    }
+
+    @Test
+    fun withoutPlaceServicesThereAreNoSuggestions() = runTest(dispatcher) {
+        val viewModel = viewModel(motorcycles = listOf(motorcycle(1)))
+
+        viewModel.onOriginChange("ara")
+
+        assertTrue(viewModel.uiState.value.originSuggestions.isEmpty())
+    }
 
     @Test
     fun editingFillsTheFormWithTheTripAsTheServerHasIt() = runTest(dispatcher) {

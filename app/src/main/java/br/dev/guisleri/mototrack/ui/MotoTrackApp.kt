@@ -29,6 +29,10 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import br.dev.guisleri.mototrack.data.local.DataStoreMotorcyclePreferences
 import br.dev.guisleri.mototrack.data.maintenance.DataStoreMaintenanceStore
+import br.dev.guisleri.mototrack.data.place.CityCatalog
+import br.dev.guisleri.mototrack.data.place.PlaceServices
+import br.dev.guisleri.mototrack.data.place.PublicApis
+import br.dev.guisleri.mototrack.data.place.RouteDistanceService
 import br.dev.guisleri.mototrack.data.local.TokenStorage
 import br.dev.guisleri.mototrack.data.photo.AndroidPhotoEncoder
 import br.dev.guisleri.mototrack.data.photo.FileTripPhotoStorage
@@ -245,6 +249,20 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
         )
     }
 
+    val placeServices = remember {
+        PlaceServices(
+            cities = CityCatalog(
+                api = PublicApis.ibge,
+                cacheFile = File(context.applicationContext.filesDir, "places/cities.json")
+            ),
+            routes = RouteDistanceService(
+                geocoding = PublicApis.geocoding,
+                ibge = PublicApis.ibge,
+                osrm = PublicApis.osrm
+            )
+        )
+    }
+
     val maintenanceStore = remember {
         DataStoreMaintenanceStore(context.applicationContext)
     }
@@ -408,6 +426,7 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             tripRepository = tripRepository,
                             tripCostRepository = tripCostRepository,
                             maintenanceStore = maintenanceStore,
+                            placeServices = placeServices,
                             motorcycleRepository = motorcycleRepository,
                             motorcyclePreferences = motorcyclePreferences,
                             isLoggingOut = isLoggingOut,

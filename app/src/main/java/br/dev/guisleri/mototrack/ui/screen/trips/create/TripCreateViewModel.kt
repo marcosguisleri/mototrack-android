@@ -6,6 +6,9 @@ import br.dev.guisleri.mototrack.data.model.common.ApiErrorResponseDTO
 import br.dev.guisleri.mototrack.data.model.trip.CreateTripRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.UpdateTripRequestDTO
 import br.dev.guisleri.mototrack.data.local.MotorcyclePreferences
+import br.dev.guisleri.mototrack.data.place.City
+import br.dev.guisleri.mototrack.data.place.CityIndex
+import br.dev.guisleri.mototrack.data.place.PlaceServices
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 import kotlinx.coroutines.flow.first
 import br.dev.guisleri.mototrack.data.repository.TripRepository
@@ -35,7 +38,9 @@ class TripCreateViewModel(
     private val motorcyclePreferences: MotorcyclePreferences,
     initialMode: TripCreateMode = TripCreateMode.PLANNED,
     private val requestedMotorcycleId: Long? = null,
-    private val editingTripId: Long? = null
+    private val editingTripId: Long? = null,
+    // Without them the form works as it always did: free text and a typed distance.
+    private val places: PlaceServices? = null
 ) : ViewModel() {
 
     private val _uiState =
@@ -60,11 +65,45 @@ class TripCreateViewModel(
 
     private var tripJob: Job? = null
 
+    // City suggestions and the automatic distance.
+    private var cityIndex: CityIndex? = null
+    private var distanceIsAuto = false
+    private var distanceJob: Job? = null
+
     init {
         loadMotorcycles()
         loadHistory()
         loadDefaultMotorcycle()
         loadTrip()
+        loadCities()
+    }
+
+    private fun loadCities() {
+        val catalog = places?.cities ?: return
+
+        viewModelScope.launch {
+            try {
+                cityIndex = catalog.load()
+
+                // What was filled in meanwhile (an edit, a recent place) may be a city.
+                _uiState.value = withResolvedCities(_uiState.value)
+
+            } catch (exception: CancellationException) {
+                throw exception
+
+            } catch (exception: Exception) {
+                // Suggestions are optional: places can be typed freely.
+            }
+        }
+    }
+
+    private fun withResolvedCities(state: TripCreateUiState): TripCreateUiState {
+        val index = cityIndex ?: return state
+
+        return state.copy(
+            originCity = state.originCity ?: index.resolve(state.origin),
+            destinationCity = state.destinationCity ?: index.resolve(state.destination)
+        )
     }
 
     /** When editing, fills the form with the trip as the server has it. */
@@ -102,7 +141,7 @@ class TripCreateViewModel(
                         .firstOrNull { it.apiValue == trip.terrain }
                         ?: TripCreateTerrain.ASPHALT,
                     selectedMotorcycleId = trip.motorcycle.id
-                ).withDistanceSuggestion()
+                ).let(::withResolvedCities).withDistanceSuggestion()
 
             } catch (exception: CancellationException) {
                 throw exception
@@ -218,6 +257,10 @@ class TripCreateViewModel(
         _uiState.value = state.copy(
             origin = state.destination,
             destination = state.origin,
+            originCity = state.destinationCity,
+            destinationCity = state.originCity,
+            originSuggestions = emptyList(),
+            destinationSuggestions = emptyList(),
             originError = null,
             destinationError = null,
             submitErrorMessage = null
@@ -298,26 +341,146 @@ class TripCreateViewModel(
     }
 
     fun onOriginChange(origin: String) {
+        val text = origin.take(MAX_TEXT_LENGTH)
+        val city = cityIndex?.resolve(text)
+
         _uiState.value = _uiState.value.copy(
-            origin = origin.take(MAX_TEXT_LENGTH),
+            origin = text,
+            originCity = city,
+            originSuggestions = suggestionsFor(text, city),
             originError = null,
             submitErrorMessage = null
         ).withDistanceSuggestion()
+
+        routeChanged()
     }
 
     fun onDestinationChange(destination: String) {
+        val text = destination.take(MAX_TEXT_LENGTH)
+        val city = cityIndex?.resolve(text)
+
         _uiState.value = _uiState.value.copy(
-            destination = destination.take(MAX_TEXT_LENGTH),
+            destination = text,
+            destinationCity = city,
+            destinationSuggestions = suggestionsFor(text, city),
             destinationError = null,
             submitErrorMessage = null
         ).withDistanceSuggestion()
+
+        routeChanged()
+    }
+
+    /** The rider picked a suggested city for the origin. */
+    fun onOriginCitySelected(city: City) {
+        _uiState.value = _uiState.value.copy(
+            origin = city.label,
+            originCity = city,
+            originSuggestions = emptyList(),
+            originError = null,
+            submitErrorMessage = null
+        ).withDistanceSuggestion()
+
+        routeChanged()
+    }
+
+    fun onDestinationCitySelected(city: City) {
+        _uiState.value = _uiState.value.copy(
+            destination = city.label,
+            destinationCity = city,
+            destinationSuggestions = emptyList(),
+            destinationError = null,
+            submitErrorMessage = null
+        ).withDistanceSuggestion()
+
+        routeChanged()
+    }
+
+    // A city that is already fully written needs no suggestions.
+    private fun suggestionsFor(text: String, city: City?): List<City> =
+        if (city != null) emptyList() else cityIndex?.search(text).orEmpty()
+
+    /**
+     * Called when the origin or the destination changed. A distance the app filled in
+     * belonged to the old route, so it goes; the rider's own number is never touched.
+     */
+    private fun routeChanged() {
+        val state = _uiState.value
+        val from = state.originCity
+        val to = state.destinationCity
+
+        distanceJob?.cancel()
+
+        if (distanceIsAuto && (from == null || to == null)) {
+            distanceIsAuto = false
+
+            _uiState.value = state.copy(
+                distance = "",
+                distanceSource = null,
+                isCalculatingDistance = false
+            ).withDistanceSuggestion()
+            return
+        }
+
+        val service = places?.routes
+        val keepsRidersDistance = state.distance.isNotBlank() && !distanceIsAuto
+
+        if (service == null || from == null || to == null || keepsRidersDistance) {
+            _uiState.value = state.copy(isCalculatingDistance = false)
+            return
+        }
+
+        _uiState.value = state.copy(isCalculatingDistance = true)
+
+        val hadAutoDistance = distanceIsAuto
+
+        distanceJob = viewModelScope.launch {
+            try {
+                val result = service.distanceBetween(from, to)
+
+                _uiState.value = if (result == null) {
+                    // The number the app filled in was for another route: better none.
+                    distanceIsAuto = false
+
+                    _uiState.value.copy(
+                        distance = if (hadAutoDistance) "" else _uiState.value.distance,
+                        distanceSource = null,
+                        isCalculatingDistance = false
+                    ).withDistanceSuggestion()
+                } else {
+                    distanceIsAuto = true
+
+                    _uiState.value.copy(
+                        distance = formatDistanceInput(result.km),
+                        distanceError = null,
+                        distanceSource = if (result.approximate) {
+                            DistanceSource.ESTIMATE
+                        } else {
+                            DistanceSource.ROUTE
+                        },
+                        isCalculatingDistance = false
+                    ).withDistanceSuggestion()
+                }
+
+            } catch (exception: CancellationException) {
+                throw exception
+
+            } catch (exception: Exception) {
+                _uiState.value = _uiState.value.copy(isCalculatingDistance = false)
+            }
+        }
     }
 
     fun onDistanceChange(distance: String) {
+        // Typing the distance makes it the rider's: the app stops filling it in.
+        distanceIsAuto = false
+        distanceJob?.cancel()
+
         _uiState.value = _uiState.value.copy(
             distance = sanitizeDistance(distance),
             distanceError = null,
-            submitErrorMessage = null
+            submitErrorMessage = null,
+            distanceSource = null,
+            isCalculatingDistance = false
         ).withDistanceSuggestion()
     }
 

@@ -85,6 +85,7 @@ import br.dev.guisleri.mototrack.ui.screen.trips.details.costs.TripCostsViewMode
 import br.dev.guisleri.mototrack.ui.screen.trips.details.costs.TripCostsViewModelFactory
 import br.dev.guisleri.mototrack.data.repository.TripCostRepository
 import br.dev.guisleri.mototrack.data.maintenance.MaintenanceStore
+import br.dev.guisleri.mototrack.data.place.PlaceServices
 import br.dev.guisleri.mototrack.data.maintenance.maintenanceOverview
 import br.dev.guisleri.mototrack.data.maintenance.summarize
 import br.dev.guisleri.mototrack.ui.navigation.MaintenanceDestination
@@ -110,6 +111,7 @@ fun MainScreen(
     tripRepository: TripRepository,
     tripCostRepository: TripCostRepository,
     maintenanceStore: MaintenanceStore,
+    placeServices: PlaceServices,
     motorcycleRepository: MotorcycleRepository,
     motorcyclePreferences: MotorcyclePreferences,
     isLoggingOut: Boolean = false,
@@ -511,7 +513,8 @@ fun MainScreen(
                                     } else {
                                         TripCreateMode.PLANNED
                                     },
-                                    requestedMotorcycleId = destination.motorcycleId
+                                    requestedMotorcycleId = destination.motorcycleId,
+                                    places = placeServices
                                 )
                             )
 
@@ -561,7 +564,8 @@ fun MainScreen(
                                     tripRepository = tripRepository,
                                     motorcycleRepository = motorcycleRepository,
                                     motorcyclePreferences = motorcyclePreferences,
-                                    editingTripId = destination.tripId
+                                    editingTripId = destination.tripId,
+                                    places = placeServices
                                 )
                             )
 
@@ -939,6 +943,8 @@ private fun TripFormScreen(
         onModeSelected = viewModel::onModeSelected,
         onOriginChange = viewModel::onOriginChange,
         onDestinationChange = viewModel::onDestinationChange,
+        onOriginCitySelected = viewModel::onOriginCitySelected,
+        onDestinationCitySelected = viewModel::onDestinationCitySelected,
         onSwapRouteClick = viewModel::swapRoute,
         onDistanceChange = viewModel::onDistanceChange,
         onApplyDistanceSuggestionClick = viewModel::applyDistanceSuggestion,
