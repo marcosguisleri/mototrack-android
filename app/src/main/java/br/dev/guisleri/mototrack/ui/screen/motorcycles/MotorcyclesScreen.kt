@@ -60,6 +60,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -133,6 +134,7 @@ private val TerrainItems = listOf(
 fun MotorcyclesScreen(
     uiState: MotorcyclesUiState,
     onRetryClick: () -> Unit,
+    onRefresh: () -> Unit,
     onRetryStatisticsClick: () -> Unit,
     onMotorcycleSelected: (Long) -> Unit,
     onSetDefaultClick: (Long) -> Unit,
@@ -171,22 +173,27 @@ fun MotorcyclesScreen(
         }
 
         is MotorcyclesUiState.Success -> {
-            MotorcyclesContent(
-                uiState = uiState,
-                onRetryStatisticsClick = onRetryStatisticsClick,
-                onMotorcycleSelected = onMotorcycleSelected,
-                onSetDefaultClick = onSetDefaultClick,
-                onPlanTripClick = onPlanTripClick,
-                onHistoryClick = onHistoryClick,
-                onTripClick = onTripClick,
-                onAddMotorcycleClick = onAddMotorcycleClick,
-                onDeleteMotorcycleClick = onDeleteMotorcycleClick,
-                onDismissDeleteIssue = onDismissDeleteIssue,
-                tripCounts = tripCounts,
-                maintenanceSummary = maintenanceSummary,
-                onMaintenanceClick = onMaintenanceClick,
-                modifier = modifier
-            )
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = onRefresh,
+                modifier = modifier.fillMaxSize()
+            ) {
+                MotorcyclesContent(
+                    uiState = uiState,
+                    onRetryStatisticsClick = onRetryStatisticsClick,
+                    onMotorcycleSelected = onMotorcycleSelected,
+                    onSetDefaultClick = onSetDefaultClick,
+                    onPlanTripClick = onPlanTripClick,
+                    onHistoryClick = onHistoryClick,
+                    onTripClick = onTripClick,
+                    onAddMotorcycleClick = onAddMotorcycleClick,
+                    onDeleteMotorcycleClick = onDeleteMotorcycleClick,
+                    onDismissDeleteIssue = onDismissDeleteIssue,
+                    tripCounts = tripCounts,
+                    maintenanceSummary = maintenanceSummary,
+                    onMaintenanceClick = onMaintenanceClick
+                )
+            }
         }
     }
 }

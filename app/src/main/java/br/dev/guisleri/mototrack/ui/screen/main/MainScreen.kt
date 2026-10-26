@@ -153,6 +153,11 @@ fun MainScreen(
             if (destination == MainDestination.HOME) {
                 homeViewModel.loadHome()
             }
+
+            // Trips completed or changed since the garage was last shown count in it.
+            if (destination == MainDestination.MOTORCYCLES) {
+                motorcyclesViewModel.refresh()
+            }
         }
     }
 
@@ -340,6 +345,7 @@ fun MainScreen(
                 if (backStack.lastOrNull() is TripDetailsDestination) {
                     tripsViewModel.refreshTrips()
                     homeViewModel.loadHome()
+                    motorcyclesViewModel.refresh()
                 }
 
                 if (backStack.size > 1) {
@@ -540,6 +546,7 @@ fun MainScreen(
                                     )
                                     tripsViewModel.refreshTrips()
                                     homeViewModel.loadHome()
+                                    motorcyclesViewModel.refresh()
                                     backStack.removeLastOrNull()
                                 }
                             }
@@ -602,6 +609,7 @@ fun MainScreen(
                                 onRetryClick = {
                                     motorcyclesViewModel.loadMotorcycles()
                                 },
+                                onRefresh = motorcyclesViewModel::refresh,
                                 onRetryStatisticsClick = {
                                     motorcyclesViewModel.retrySelectedStatistics()
                                 },
@@ -879,6 +887,7 @@ fun MainScreen(
                                 onBackClick = {
                                     tripsViewModel.refreshTrips()
                                     homeViewModel.loadHome()
+                                    motorcyclesViewModel.refresh()
                                     backStack.removeLastOrNull()
                                 },
                                 onStartTripClick = {

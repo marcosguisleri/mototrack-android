@@ -14,7 +14,9 @@ sealed interface MotorcyclesUiState {
         val defaultMotorcycleId: Long? = null,
         val statisticsUiState: MotorcycleStatisticsUiState,
         val isDeleting: Boolean = false,
-        val deleteIssue: MotorcycleDeleteIssue? = null
+        val deleteIssue: MotorcycleDeleteIssue? = null,
+        // A reload in the background: what is on screen stays until the new data arrives.
+        val isRefreshing: Boolean = false
     ) : MotorcyclesUiState
 
     data class Error(

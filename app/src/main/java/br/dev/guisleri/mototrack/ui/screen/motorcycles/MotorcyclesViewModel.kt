@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import br.dev.guisleri.mototrack.data.local.MotorcyclePreferences
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 import br.dev.guisleri.mototrack.ui.feedback.Feedback
+import br.dev.guisleri.mototrack.ui.feedback.FeedbackKind
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -38,6 +39,7 @@ class MotorcyclesViewModel(
 
     private var motorcyclesJob: Job? = null
     private var statisticsJob: Job? = null
+    private var refreshJob: Job? = null
 
     init {
         loadMotorcycles()
@@ -103,6 +105,97 @@ class MotorcyclesViewModel(
                     MotorcyclesUiState.Error(
                         message = "Não foi possível carregar suas motos."
                     )
+            }
+        }
+    }
+
+    /**
+     * Brings the garage up to date after something changed elsewhere (a trip was
+     * completed, edited or deleted) or when the rider pulls to refresh. Unlike
+     * [loadMotorcycles] it keeps what is on screen and only swaps it when the new data
+     * is there; a failure leaves the old data and says so.
+     */
+    fun refresh() {
+        val current = _uiState.value as? MotorcyclesUiState.Success
+
+        // Nothing on screen to keep: load as usual.
+        if (current == null) {
+            if (_uiState.value != MotorcyclesUiState.Loading) loadMotorcycles()
+            return
+        }
+
+        if (current.isRefreshing) return
+
+        val selectedAtStart = current.selectedMotorcycleId
+
+        refreshJob?.cancel()
+        _uiState.value = current.copy(isRefreshing = true)
+
+        refreshJob = viewModelScope.launch {
+            try {
+                val motorcycles = motorcycleRepository.getMotorcycles()
+
+                val selectedId = selectedAtStart
+                    .takeIf { id -> motorcycles.any { it.id == id } }
+                    ?: motorcycles.firstOrNull()?.id
+
+                val statistics = selectedId?.let {
+                    motorcycleRepository.getMotorcycleStatistics(motorcycleId = it)
+                }
+
+                val latest = _uiState.value as? MotorcyclesUiState.Success
+                    ?: return@launch
+
+                _uiState.value =
+                    if (selectedId == null) {
+                        MotorcyclesUiState.Empty
+                    } else {
+                        latest.copy(
+                            motorcycles = motorcycles,
+                            selectedMotorcycleId =
+                                // The rider may have picked another motorcycle meanwhile.
+                                latest.selectedMotorcycleId
+                                    .takeIf { id -> motorcycles.any { it.id == id } }
+                                    ?: selectedId,
+                            defaultMotorcycleId = latest.defaultMotorcycleId
+                                ?.takeIf { id -> motorcycles.any { it.id == id } },
+                            statisticsUiState =
+                                if (latest.selectedMotorcycleId == selectedId && statistics != null) {
+                                    MotorcycleStatisticsUiState.Success(statistics)
+                                } else {
+                                    latest.statisticsUiState
+                                },
+                            isRefreshing = false
+                        )
+                    }
+
+                // The statistics of another selection are not the ones just fetched.
+                if (
+                    selectedId != null &&
+                    latest.selectedMotorcycleId != selectedId &&
+                    latest.selectedMotorcycleId in motorcycles.map { it.id }
+                ) {
+                    loadMotorcycleStatistics(latest.selectedMotorcycleId)
+                }
+
+            } catch (exception: CancellationException) {
+                throw exception
+
+            } catch (exception: Exception) {
+                (_uiState.value as? MotorcyclesUiState.Success)?.let {
+                    _uiState.value = it.copy(isRefreshing = false)
+                }
+
+                _feedback.trySend(
+                    Feedback(
+                        message = if (exception is IOException) {
+                            "Sem conexão: não foi possível atualizar suas motos."
+                        } else {
+                            "Não foi possível atualizar suas motos."
+                        },
+                        kind = FeedbackKind.ERROR
+                    )
+                )
             }
         }
     }

@@ -241,6 +241,70 @@ class MotorcyclesViewModelTest {
         )
     }
 
+    @Test
+    fun refreshBringsInTheTripsCompletedSinceWithoutReloadingTheScreen() = runTest(dispatcher) {
+        val api = FakeApi(listOf(motorcycle(1), motorcycle(2)))
+        val viewModel = viewModel(listOf(motorcycle(1), motorcycle(2)), api = api)
+        viewModel.selectMotorcycle(2)
+
+        // A trip is completed elsewhere.
+        api.totalKm = 120.0
+        api.completedTrips = 1
+
+        viewModel.refresh()
+
+        val state = viewModel.uiState.value as MotorcyclesUiState.Success
+        val statistics = (state.statisticsUiState as MotorcycleStatisticsUiState.Success).statistics
+        assertEquals(1L, statistics.completedTrips)
+        assertEquals(120.0, statistics.totalCompletedDistanceKm, 0.0)
+        assertEquals(2L, state.selectedMotorcycleId)
+        assertFalse(state.isRefreshing)
+    }
+
+    @Test
+    fun refreshFailureKeepsWhatWasOnScreenAndSaysSo() = runTest(dispatcher) {
+        val api = FakeApi(listOf(motorcycle(1)))
+        val viewModel = viewModel(listOf(motorcycle(1)), api = api)
+
+        api.listFailure = IOException("offline")
+        viewModel.refresh()
+
+        val state = viewModel.uiState.value as MotorcyclesUiState.Success
+        assertFalse(state.isRefreshing)
+        assertEquals(1, state.motorcycles.size)
+        assertEquals(
+            Feedback("Sem conexão: não foi possível atualizar suas motos.", FeedbackKind.ERROR),
+            viewModel.feedback.first()
+        )
+    }
+
+    @Test
+    fun refreshDropsAMotorcycleRemovedMeanwhile() = runTest(dispatcher) {
+        val api = FakeApi(listOf(motorcycle(1), motorcycle(2)))
+        val viewModel = viewModel(listOf(motorcycle(1), motorcycle(2)), api = api)
+        viewModel.selectMotorcycle(2)
+
+        api.deleteMotorcycle(2)
+        viewModel.refresh()
+
+        val state = viewModel.uiState.value as MotorcyclesUiState.Success
+        assertEquals(listOf(1L), state.motorcycles.map { it.id })
+        assertEquals(1L, state.selectedMotorcycleId)
+    }
+
+    @Test
+    fun refreshLoadsFromScratchWhenThereWasAnError() = runTest(dispatcher) {
+        val api = FakeApi(listOf(motorcycle(1)))
+        api.listFailure = IOException("offline")
+        val viewModel = viewModel(listOf(motorcycle(1)), api = api)
+        assertEquals(true, viewModel.uiState.value is MotorcyclesUiState.Error)
+
+        api.listFailure = null
+        viewModel.refresh()
+
+        assertEquals(true, viewModel.uiState.value is MotorcyclesUiState.Success)
+    }
+
     private class FakePreferences(defaultId: Long? = null) : MotorcyclePreferences {
         val state = MutableStateFlow(defaultId)
 
@@ -258,8 +322,16 @@ class MotorcyclesViewModelTest {
         private val motorcycles = motorcycles.toMutableList()
         val deletedIds = mutableListOf<Long>()
         var deleteFailure: Exception? = null
+        var listFailure: Exception? = null
+        var totalKm = 0.0
+        var completedTrips = 0L
+        var listCalls = 0
 
-        override suspend fun getMotorcycles() = motorcycles.toList()
+        override suspend fun getMotorcycles(): List<MotorcycleResponseDTO> {
+            listCalls++
+            listFailure?.let { throw it }
+            return motorcycles.toList()
+        }
 
         override suspend fun deleteMotorcycle(motorcycleId: Long) {
             deleteFailure?.let { throw it }
@@ -277,8 +349,8 @@ class MotorcyclesViewModelTest {
         ): MotorcycleStatisticsResponseDTO =
             MotorcycleStatisticsResponseDTO(
                 motorcycle = motorcycles.first { it.id == motorcycleId },
-                completedTrips = 0,
-                totalCompletedDistanceKm = 0.0,
+                completedTrips = completedTrips,
+                totalCompletedDistanceKm = totalKm,
                 averageCompletedDistanceKm = null,
                 longestTrip = null,
                 lastCompletedTrip = null,
