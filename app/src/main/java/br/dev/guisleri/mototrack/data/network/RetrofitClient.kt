@@ -1,5 +1,6 @@
 package br.dev.guisleri.mototrack.data.network
 
+import br.dev.guisleri.mototrack.BuildConfig
 import br.dev.guisleri.mototrack.data.local.TokenStorage
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -9,7 +10,7 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 object RetrofitClient {
 
-    private const val BASE_URL = "http://10.0.2.2:8080/"
+    private const val BASE_URL = BuildConfig.API_BASE_URL
 
     private val json = Json {
         ignoreUnknownKeys = true

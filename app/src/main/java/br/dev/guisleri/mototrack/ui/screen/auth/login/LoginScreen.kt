@@ -3,6 +3,7 @@ package br.dev.guisleri.mototrack.ui.screen.auth.login
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import br.dev.guisleri.mototrack.BuildConfig
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -73,7 +74,7 @@ fun LoginScreen(
         mutableStateOf("")
     }
 
-    var password by rememberSaveable {
+    var password by remember {
         mutableStateOf("")
     }
 
@@ -146,6 +147,7 @@ fun LoginScreen(
                 password
             )
         } else if (
+            BuildConfig.DEBUG &&
             Build.VERSION.SDK_INT >= 37 &&
             ContextCompat.checkSelfPermission(
                 context,

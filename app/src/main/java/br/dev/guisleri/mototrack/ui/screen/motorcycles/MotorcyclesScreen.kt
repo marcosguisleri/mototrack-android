@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -830,7 +831,9 @@ private fun MotorcycleSummary(
     statistics: MotorcycleStatisticsResponseDTO
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         MotorcycleMetricCard(
@@ -869,7 +872,8 @@ private fun MotorcycleMetricCard(
 ) {
     Column(
         modifier = modifier
-            .height(112.dp)
+            .fillMaxHeight()
+            .heightIn(min = 112.dp)
             .clip(RoundedCornerShape(22.dp))
             .background(WarmCard)
             .border(

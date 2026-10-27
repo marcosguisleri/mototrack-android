@@ -19,3 +19,8 @@
 .cxx
 
 .idea/
+
+# Assinatura do release
+keystore.properties
+*.jks
+*.keystore

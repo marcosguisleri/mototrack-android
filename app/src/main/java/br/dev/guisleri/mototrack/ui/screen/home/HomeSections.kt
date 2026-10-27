@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -121,10 +122,14 @@ internal fun HomeTopSection(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // The greeting sits above the motorcycle; with larger system fonts it needs more room.
+        val fontScale = LocalDensity.current.fontScale
+        val heroHeight = 220.dp + 130.dp * (fontScale - 1f).coerceIn(0f, 1f)
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
+                .height(heroHeight)
         ) {
             Canvas(modifier = Modifier.matchParentSize()) {
                 drawCircle(
