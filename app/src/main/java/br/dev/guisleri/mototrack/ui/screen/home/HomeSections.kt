@@ -59,6 +59,7 @@ import br.dev.guisleri.mototrack.ui.theme.WarmInk
 import br.dev.guisleri.mototrack.ui.theme.WarmInkSoft
 import br.dev.guisleri.mototrack.ui.theme.WarmMuted
 import java.text.NumberFormat
+import br.dev.guisleri.mototrack.ui.screen.profile.RiderLevel
 import java.time.LocalDate
 import java.util.Locale
 
@@ -283,7 +284,8 @@ internal fun RoadStatsCard(
     distanceThisYearKm: Double,
     completedTrips: Long,
     motorcycleCount: Long,
-    monthlyKm: DoubleArray?
+    monthlyKm: DoubleArray?,
+    level: RiderLevel? = null
 ) {
     val today = remember { LocalDate.now() }
     val worldLaps = totalDistanceKm / EARTH_CIRCUMFERENCE_KM
@@ -385,6 +387,12 @@ internal fun RoadStatsCard(
                 monthlyKm = monthlyKm,
                 currentMonthIndex = today.monthValue - 1
             )
+        }
+
+        level?.let {
+            Spacer(modifier = Modifier.height(22.dp))
+
+            LevelRow(level = it)
         }
 
         Spacer(modifier = Modifier.height(22.dp))
@@ -504,6 +512,51 @@ private fun MonthlyBars(
             style = MaterialTheme.typography.labelMedium,
             color = Color.White.copy(alpha = 0.6f)
         )
+    }
+}
+
+@Composable
+private fun LevelRow(level: RiderLevel) {
+    val fraction by animateFloatAsState(targetValue = level.fraction, label = "level")
+
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Nível ${level.level} · ${level.name}",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
+
+            Text(
+                text = level.nextXp?.let { "${formatNumber(level.xp.toDouble())} / ${formatNumber(it.toDouble())} XP" }
+                    ?: "${formatNumber(level.xp.toDouble())} XP",
+                style = MaterialTheme.typography.labelMedium,
+                color = WarmEmberOnDark
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Color.White.copy(alpha = 0.12f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction.coerceAtLeast(0.02f))
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.85f))
+            )
+        }
     }
 }
 

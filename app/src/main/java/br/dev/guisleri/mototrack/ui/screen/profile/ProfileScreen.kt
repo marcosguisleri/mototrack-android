@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -154,6 +155,8 @@ fun ProfileScreen(
             onRetryClick = onRetryUserClick
         )
 
+        stats?.let { LevelCard(riderLevelOf(it)) }
+
         StatsRow(stats)
 
         SectionTitle(
@@ -186,6 +189,98 @@ fun ProfileScreen(
         )
     }
 }
+
+/** The rider's level: a badge, the XP and how far the next level is. */
+@Composable
+private fun LevelCard(level: RiderLevel) {
+    val fraction by animateFloatAsState(targetValue = level.fraction, label = "level-progress")
+
+    WarmSurface(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(CircleShape)
+                        .background(WarmEmberTint),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = level.level.toString(),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = WarmEmber
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "NÍVEL ${level.level}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.6.sp,
+                        color = WarmEmber
+                    )
+
+                    Text(
+                        text = level.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = WarmInk
+                    )
+                }
+
+                Text(
+                    text = "${formatXp(level.xp)} XP",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = WarmInk
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(WarmHairline)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(fraction.coerceAtLeast(0.03f))
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(50))
+                        .background(WarmEmber)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = level.nextName
+                    ?.let { "Faltam ${formatXp(level.xpToNext)} XP para $it" }
+                    ?: "Você chegou ao nível máximo. Respeito, estradeiro!",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = WarmInkSoft
+            )
+
+            Text(
+                text = "1 km = 1 XP · +50 por viagem concluída · +25 por destino diferente",
+                modifier = Modifier.padding(top = 4.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = WarmMuted
+            )
+        }
+    }
+}
+
+private fun formatXp(xp: Int): String =
+    java.text.NumberFormat.getIntegerInstance(java.util.Locale.forLanguageTag("pt-BR")).format(xp)
 
 @Composable
 private fun IdentityCard(

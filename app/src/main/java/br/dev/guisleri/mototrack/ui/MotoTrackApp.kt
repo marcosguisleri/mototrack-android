@@ -65,6 +65,7 @@ import br.dev.guisleri.mototrack.data.remote.user.UserApiService
 import br.dev.guisleri.mototrack.data.repository.TripRepository
 import br.dev.guisleri.mototrack.data.repository.UserRepository
 import br.dev.guisleri.mototrack.notification.TripReminderScheduler
+import br.dev.guisleri.mototrack.ui.screen.profile.RiderLevelMemory
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
 import br.dev.guisleri.mototrack.ui.screen.profile.ProfileViewModel
 import br.dev.guisleri.mototrack.ui.screen.profile.ProfileViewModelFactory
@@ -452,6 +453,7 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                                         reminderScheduler.cancelAll()
                                         // Records waiting to be sent belong to this account too.
                                         offlineServices.store.clear()
+                                        RiderLevelMemory(context).forget()
                                         try {
                                             authRepository.logout()
                                         } catch (exception: CancellationException) {

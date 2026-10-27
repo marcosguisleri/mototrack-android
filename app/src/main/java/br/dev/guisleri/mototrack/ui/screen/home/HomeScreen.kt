@@ -81,6 +81,7 @@ import br.dev.guisleri.mototrack.ui.components.formatDistance
 import br.dev.guisleri.mototrack.ui.components.formatNumber
 import br.dev.guisleri.mototrack.ui.components.formatTerrain
 import br.dev.guisleri.mototrack.ui.components.formatTripDate
+import br.dev.guisleri.mototrack.ui.screen.profile.riderLevelOf
 import br.dev.guisleri.mototrack.ui.theme.EmberHeroBrush
 import br.dev.guisleri.mototrack.ui.theme.GraphiteHeroBrush
 import br.dev.guisleri.mototrack.ui.theme.SunriseHeroBrush
@@ -306,7 +307,8 @@ private fun HomeContent(
                 motorcycleCount = home.motorcycleCount,
                 monthlyKm = trips?.let {
                     monthlyCompletedDistanceKm(it, java.time.LocalDate.now().year)
-                }
+                },
+                level = trips?.let { riderLevelOf(it) }
             )
         }
 

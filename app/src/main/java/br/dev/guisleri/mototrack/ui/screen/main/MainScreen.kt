@@ -54,6 +54,8 @@ import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripPhotosViewMo
 import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripPhotosViewModelFactory
 import br.dev.guisleri.mototrack.notification.canPostNotifications
 import br.dev.guisleri.mototrack.notification.MaintenanceAlertScheduler
+import br.dev.guisleri.mototrack.ui.screen.profile.RiderLevelMemory
+import br.dev.guisleri.mototrack.ui.screen.profile.riderLevelOf
 import br.dev.guisleri.mototrack.notification.MaintenanceNotifier
 import br.dev.guisleri.mototrack.notification.ReminderKind
 import br.dev.guisleri.mototrack.notification.costsReminder
@@ -231,6 +233,18 @@ fun MainScreen(
     LaunchedEffect(homeTrips, remindersEnabled) {
         homeTrips?.let { trips ->
             reminderScheduler.sync(planTripReminders(trips, System.currentTimeMillis()))
+        }
+    }
+
+    // A level gained is celebrated once, when the trips show it.
+    val levelMemory = remember { RiderLevelMemory(context) }
+
+    LaunchedEffect(homeTrips) {
+        val trips = homeTrips ?: return@LaunchedEffect
+        val level = riderLevelOf(trips)
+
+        if (levelMemory.reached(level.level)) {
+            showFeedback(Feedback("Subiu de nível! Agora você é nível ${level.level}: ${level.name} 🏍️"))
         }
     }
 
