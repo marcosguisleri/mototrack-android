@@ -8,7 +8,10 @@ sealed interface HomeUiState {
 
     data class Success(
         val home: HomeResponseDTO,
-        val highlight: HomeHighlightState
+        val highlight: HomeHighlightState,
+        val userName: String? = null,
+        val isRefreshing: Boolean = false,
+        val refreshErrorMessage: String? = null
     ) : HomeUiState
 
     data class Error(

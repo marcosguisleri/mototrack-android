@@ -1,31 +1,45 @@
 package br.dev.guisleri.mototrack.ui.navigation
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.TwoWheeler
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Route
+import androidx.compose.material.icons.outlined.TwoWheeler
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation3.runtime.NavKey
-import br.dev.guisleri.mototrack.R
 import kotlinx.serialization.Serializable
 
 @Serializable
 enum class MainDestination(
     val label: String,
-    val iconResId: Int
+    val icon: ImageVector,
+    val selectedIcon: ImageVector
 ) : NavKey {
     HOME(
         label = "Home",
-        iconResId = R.drawable.ic_mototrack_home
+        icon = Icons.Outlined.Home,
+        selectedIcon = Icons.Filled.Home
     ),
 
     TRIPS(
         label = "Viagens",
-        iconResId = R.drawable.ic_mototrack_trips
+        icon = Icons.Outlined.Route,
+        selectedIcon = Icons.Filled.Route
     ),
 
     MOTORCYCLES(
         label = "Motos",
-        iconResId = R.drawable.ic_mototrack_motorcycles
+        icon = Icons.Outlined.TwoWheeler,
+        selectedIcon = Icons.Filled.TwoWheeler
     ),
 
     PROFILE(
         label = "Perfil",
-        iconResId = R.drawable.ic_mototrack_profile
+        icon = Icons.Outlined.Person,
+        selectedIcon = Icons.Filled.Person
     )
 }

@@ -1,5 +1,8 @@
 package br.dev.guisleri.mototrack.ui
 
+import br.dev.guisleri.mototrack.ui.components.WarmDialog
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,10 +27,26 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import br.dev.guisleri.mototrack.data.local.DataStoreMotorcyclePreferences
+import br.dev.guisleri.mototrack.data.maintenance.DataStoreMaintenanceStore
+import br.dev.guisleri.mototrack.data.offline.DataStorePendingRecordStore
+import br.dev.guisleri.mototrack.data.offline.OfflineServices
+import br.dev.guisleri.mototrack.data.offline.PendingRecordSyncer
+import br.dev.guisleri.mototrack.data.place.CityCatalog
+import br.dev.guisleri.mototrack.data.place.PlaceServices
+import br.dev.guisleri.mototrack.data.place.PublicApis
+import br.dev.guisleri.mototrack.data.place.RouteDistanceService
 import br.dev.guisleri.mototrack.data.local.TokenStorage
+import br.dev.guisleri.mototrack.data.photo.AndroidPhotoEncoder
+import br.dev.guisleri.mototrack.data.photo.FileTripPhotoStorage
+import java.io.File
 import br.dev.guisleri.mototrack.data.network.HomeApiService
 import br.dev.guisleri.mototrack.data.network.RetrofitClient
+import br.dev.guisleri.mototrack.data.repository.AccountRepository
 import br.dev.guisleri.mototrack.data.repository.AuthRepository
+import br.dev.guisleri.mototrack.ui.screen.auth.forgot.ForgotPasswordScreen
+import br.dev.guisleri.mototrack.ui.screen.auth.forgot.ForgotPasswordViewModel
+import br.dev.guisleri.mototrack.ui.screen.auth.forgot.ForgotPasswordViewModelFactory
 import br.dev.guisleri.mototrack.data.repository.HomeRepository
 import br.dev.guisleri.mototrack.ui.navigation.AppDestination
 import br.dev.guisleri.mototrack.ui.screen.auth.login.LoginScreen
@@ -41,8 +60,26 @@ import br.dev.guisleri.mototrack.ui.screen.auth.register.RegisterViewModelFactor
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModel
 import br.dev.guisleri.mototrack.ui.screen.home.HomeViewModelFactory
 import br.dev.guisleri.mototrack.ui.screen.main.MainScreen
+import br.dev.guisleri.mototrack.data.remote.motorcycle.MotorcycleApiService
+import br.dev.guisleri.mototrack.data.remote.trip.TripApiService
+import br.dev.guisleri.mototrack.data.remote.trip.TripCostApiService
+import br.dev.guisleri.mototrack.data.repository.TripCostRepository
+import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
+import br.dev.guisleri.mototrack.data.remote.user.UserApiService
+import br.dev.guisleri.mototrack.data.repository.TripRepository
+import br.dev.guisleri.mototrack.data.repository.UserRepository
+import br.dev.guisleri.mototrack.notification.TripReminderScheduler
+import br.dev.guisleri.mototrack.ui.screen.profile.RiderLevelMemory
+import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModel
+import br.dev.guisleri.mototrack.ui.screen.profile.ProfileViewModel
+import br.dev.guisleri.mototrack.ui.screen.profile.ProfileViewModelFactory
+import br.dev.guisleri.mototrack.ui.screen.motorcycles.MotorcyclesViewModelFactory
+import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModel
+import br.dev.guisleri.mototrack.ui.screen.trips.TripsViewModelFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import java.io.IOException
+import retrofit2.HttpException
 
 @Composable
 fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
@@ -64,6 +101,13 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
         mutableStateOf<String?>(null)
     }
 
+    var logoutErrorMessage by remember {
+        mutableStateOf<String?>(null)
+    }
+    var isLoggingOut by remember {
+        mutableStateOf(false)
+    }
+
     LaunchedEffect(tokenStorage, sessionReadAttempt) {
         if (initialDestination != null) return@LaunchedEffect
 
@@ -82,18 +126,28 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
     }
 
     if (sessionReadError) {
-        AlertDialog(
+        WarmDialog(
+            icon = Icons.Outlined.ErrorOutline,
+            title = "Não foi possível ler a sessão",
+            message = "O armazenamento local está indisponível. Tente novamente.",
+            confirmText = "Tentar novamente",
+            onConfirm = {
+                sessionReadError = false
+                sessionReadAttempt++
+            },
             onDismissRequest = {},
-            title = { Text("Não foi possível ler a sessão") },
-            text = { Text("O armazenamento local está indisponível. Tente novamente.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    sessionReadError = false
-                    sessionReadAttempt++
-                }) {
-                    Text("Tentar novamente")
-                }
-            }
+            dismissible = false
+        )
+    }
+
+    logoutErrorMessage?.let { message ->
+        WarmDialog(
+            icon = Icons.Outlined.ErrorOutline,
+            title = "Não foi possível encerrar a sessão no servidor",
+            message = message,
+            confirmText = "OK",
+            onConfirm = { logoutErrorMessage = null },
+            onDismissRequest = { logoutErrorMessage = null }
         )
     }
 
@@ -155,9 +209,95 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
         )
     }
 
+    val userApiService = remember(authenticatedRetrofit) {
+        authenticatedRetrofit.create(UserApiService::class.java)
+    }
+
+    val accountRepository = remember(userApiService, tokenStorage) {
+        AccountRepository(
+            recoveryApi = RetrofitClient.accountRecoveryApiService,
+            userApi = userApiService,
+            saveTokens = tokenStorage::saveTokens
+        )
+    }
+
+    val userRepository = remember(userApiService) {
+        UserRepository(
+            userApiService = userApiService
+        )
+    }
+
     val homeRepository = remember {
         HomeRepository(
             homeApiService = homeApiService
+        )
+    }
+
+    val motorcycleApiService = remember {
+        authenticatedRetrofit.create(
+            MotorcycleApiService::class.java
+        )
+    }
+
+    val motorcycleRepository = remember {
+        MotorcycleRepository(
+            motorcycleApiService = motorcycleApiService
+        )
+    }
+
+    val motorcyclePreferences = remember {
+        DataStoreMotorcyclePreferences(context.applicationContext)
+    }
+
+    val tripApiService = remember(authenticatedRetrofit) {
+        authenticatedRetrofit.create(TripApiService::class.java)
+    }
+
+    val tripRepository = remember(tripApiService) {
+        TripRepository(
+            tripApiService = tripApiService
+        )
+    }
+
+    val tripCostRepository = remember(authenticatedRetrofit) {
+        TripCostRepository(
+            api = authenticatedRetrofit.create(TripCostApiService::class.java)
+        )
+    }
+
+    val offlineServices = remember(tripCostRepository) {
+        val store = DataStorePendingRecordStore(context.applicationContext)
+
+        OfflineServices(
+            store = store,
+            syncer = PendingRecordSyncer(store, tripCostRepository)
+        )
+    }
+
+    val placeServices = remember {
+        PlaceServices(
+            cities = CityCatalog(
+                api = PublicApis.ibge,
+                cacheFile = File(context.applicationContext.filesDir, "places/cities.json")
+            ),
+            routes = RouteDistanceService(
+                geocoding = PublicApis.geocoding,
+                ibge = PublicApis.ibge,
+                osrm = PublicApis.osrm
+            )
+        )
+    }
+
+    val maintenanceStore = remember {
+        DataStoreMaintenanceStore(context.applicationContext)
+    }
+
+    val reminderScheduler = remember { TripReminderScheduler(context) }
+
+    val tripPhotoStorage = remember {
+        FileTripPhotoStorage(
+            root = File(context.applicationContext.filesDir, "trip_photos"),
+            encoder = AndroidPhotoEncoder(context)
         )
     }
 
@@ -223,6 +363,45 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                                 backStack.add(
                                     AppDestination.REGISTER
                                 )
+                            },
+
+                            onForgotPasswordClick = {
+                                backStack.add(
+                                    AppDestination.FORGOT_PASSWORD
+                                )
+                            }
+                        )
+                    }
+
+                AppDestination.FORGOT_PASSWORD ->
+                    NavEntry(destination) {
+
+                        val forgotPasswordViewModel: ForgotPasswordViewModel = viewModel(
+                            factory = ForgotPasswordViewModelFactory(accountRepository)
+                        )
+
+                        val forgotPasswordUiState by
+                        forgotPasswordViewModel
+                            .uiState
+                            .collectAsStateWithLifecycle()
+
+                        LaunchedEffect(forgotPasswordUiState.isReset) {
+                            if (forgotPasswordUiState.isReset) {
+                                registrationSuccessMessage =
+                                    "Senha redefinida! Entre com a nova senha."
+
+                                backStack.removeLastOrNull()
+                            }
+                        }
+
+                        ForgotPasswordScreen(
+                            uiState = forgotPasswordUiState,
+                            onSendCodeClick = forgotPasswordViewModel::sendCode,
+                            onResendCodeClick = forgotPasswordViewModel::resendCode,
+                            onChangeEmailClick = forgotPasswordViewModel::changeEmail,
+                            onResetClick = forgotPasswordViewModel::resetPassword,
+                            onBackToLoginClick = {
+                                backStack.removeLastOrNull()
                             }
                         )
                     }
@@ -277,19 +456,71 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
 
                         val homeViewModel: HomeViewModel = viewModel(
                             factory = HomeViewModelFactory(
-                                homeRepository = homeRepository
+                                homeRepository = homeRepository,
+                                userRepository = userRepository
+                            )
+                        )
+
+                        val motorcyclesViewModel: MotorcyclesViewModel = viewModel(
+                            factory = MotorcyclesViewModelFactory(
+                                motorcycleRepository = motorcycleRepository,
+                                motorcyclePreferences = motorcyclePreferences
+                            )
+                        )
+
+                        val tripsViewModel: TripsViewModel = viewModel(
+                            factory = TripsViewModelFactory(
+                                tripRepository = tripRepository
+                            )
+                        )
+
+                        val profileViewModel: ProfileViewModel = viewModel(
+                            factory = ProfileViewModelFactory(
+                                userRepository = userRepository
                             )
                         )
 
                         MainScreen(
                             homeViewModel = homeViewModel,
+                            motorcyclesViewModel = motorcyclesViewModel,
+                            tripsViewModel = tripsViewModel,
+                            profileViewModel = profileViewModel,
+                            reminderScheduler = reminderScheduler,
+                            tripPhotoStorage = tripPhotoStorage,
+                            tripRepository = tripRepository,
+                            tripCostRepository = tripCostRepository,
+                            maintenanceStore = maintenanceStore,
+                            placeServices = placeServices,
+                            offline = offlineServices,
+                            accountRepository = accountRepository,
+                            motorcycleRepository = motorcycleRepository,
+                            motorcyclePreferences = motorcyclePreferences,
+                            isLoggingOut = isLoggingOut,
                             onLogoutClick = {
-                                coroutineScope.launch {
-                                    runCatching {
-                                        authRepository.logout()
-                                    }.onFailure { exception ->
-                                        if (exception is CancellationException) {
+                                if (!isLoggingOut) {
+                                    coroutineScope.launch {
+                                        isLoggingOut = true
+                                        logoutErrorMessage = null
+                                        // Reminders belong to the account that is leaving.
+                                        reminderScheduler.cancelAll()
+                                        // Records waiting to be sent belong to this account too.
+                                        offlineServices.store.clear()
+                                        RiderLevelMemory(context).forget()
+                                        try {
+                                            authRepository.logout()
+                                        } catch (exception: CancellationException) {
                                             throw exception
+                                        } catch (exception: HttpException) {
+                                            logoutErrorMessage =
+                                                "A sessão foi removida deste dispositivo, mas o servidor recusou a revogação."
+                                        } catch (exception: IOException) {
+                                            logoutErrorMessage =
+                                                "A sessão foi removida deste dispositivo, mas não foi possível confirmar a revogação no servidor."
+                                        } catch (exception: Exception) {
+                                            logoutErrorMessage =
+                                                "A sessão foi removida deste dispositivo, mas ocorreu um erro ao notificar o servidor."
+                                        } finally {
+                                            isLoggingOut = false
                                         }
                                     }
                                 }
