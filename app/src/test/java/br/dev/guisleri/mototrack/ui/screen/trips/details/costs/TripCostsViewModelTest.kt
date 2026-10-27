@@ -5,6 +5,10 @@ package br.dev.guisleri.mototrack.ui.screen.trips.details.costs
 import br.dev.guisleri.mototrack.data.model.trip.ExpenseCategoryCostDTO
 import br.dev.guisleri.mototrack.data.model.trip.FuelCostDTO
 import br.dev.guisleri.mototrack.data.model.trip.FuelEntryRequestDTO
+import br.dev.guisleri.mototrack.data.offline.InMemoryPendingStore
+import br.dev.guisleri.mototrack.data.offline.PendingRecord
+import br.dev.guisleri.mototrack.data.offline.PendingRecordSyncer
+import kotlinx.coroutines.flow.first
 import br.dev.guisleri.mototrack.data.model.trip.FuelEntryResponseDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripCostSummaryResponseDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripExpenseRequestDTO
@@ -206,6 +210,161 @@ class TripCostsViewModelTest {
 
         assertEquals(1, api.fuelRequests.size)
         response.complete(Unit)
+    }
+
+    @Test
+    fun withoutAConnectionANewFuelStopIsKeptAndCountedAtOnce() = runTest(dispatcher) {
+        val api = FakeCostApi().apply { onAddFuel = { throw IOException("offline") } }
+        val store = InMemoryPendingStore()
+        val viewModel = TripCostsViewModel(1, TripCostRepository(api), store, now = { 5_000L })
+        viewModel.onTripDistanceKnown(100.0)
+
+        viewModel.addFuel()
+        viewModel.saveFuel("10", "60")
+
+        val state = viewModel.uiState.value
+        assertNull(state.editor)
+        assertNull(state.editorErrorMessage)
+        assertEquals(1, state.pending.size)
+        assertEquals(60.0, state.summary!!.totalCost!!, 0.001)
+        assertEquals(0.6, state.summary!!.costPerKm!!, 0.001)
+        assertEquals(10.0, state.summary!!.fuel.liters!!, 0.001)
+        assertTrue(state.records.first() is TripRecord.Pending)
+        assertEquals(
+            "Sem conexão: guardei o registro e envio assim que a internet voltar.",
+            viewModel.feedback.first().message
+        )
+    }
+
+    @Test
+    fun withoutAConnectionAnExpenseIsKeptToo() = runTest(dispatcher) {
+        val api = FakeCostApi()
+        val store = InMemoryPendingStore()
+        val viewModel = TripCostsViewModel(1, TripCostRepository(api), store)
+        api.failure = null
+
+        // Loaded fine; now the connection drops while registering.
+        val offlineApi = FakeCostApi()
+        offlineApi.onAddFuel = {}
+        val offline = object : TripCostApiService by api {
+            override suspend fun addExpense(
+                tripId: Long,
+                request: TripExpenseRequestDTO
+            ): TripExpenseResponseDTO = throw IOException("offline")
+        }
+        val vm = TripCostsViewModel(1, TripCostRepository(offline), store)
+
+        vm.addExpense(ExpenseCategory.TOLL)
+        vm.saveExpense(ExpenseCategory.TOLL, "0", "")
+
+        val pending = vm.uiState.value.pending.single()
+        assertEquals("TOLL", pending.expense!!.category)
+        assertEquals(1L, vm.uiState.value.summary!!.expenses.single().count)
+    }
+
+    @Test
+    fun withoutAQueueTheConnectionErrorIsStillShown() = runTest(dispatcher) {
+        val api = FakeCostApi().apply { onAddFuel = { throw IOException("offline") } }
+        val viewModel = TripCostsViewModel(1, TripCostRepository(api))
+
+        viewModel.addFuel()
+        viewModel.saveFuel("10", "60")
+
+        assertEquals(
+            "Não foi possível comunicar com o servidor.",
+            viewModel.uiState.value.editorErrorMessage
+        )
+        assertNotNull(viewModel.uiState.value.editor)
+    }
+
+    @Test
+    fun whenTheQueueIsSentTheTripShowsTheServersNumbers() = runTest(dispatcher) {
+        val api = FakeCostApi().apply { onAddFuel = { throw IOException("offline") } }
+        val repository = TripCostRepository(api)
+        val store = InMemoryPendingStore()
+        val syncer = PendingRecordSyncer(store, repository)
+        val viewModel = TripCostsViewModel(1, repository, store, syncer)
+
+        viewModel.addFuel()
+        viewModel.saveFuel("10", "60")
+        assertEquals(1, viewModel.uiState.value.pending.size)
+
+        // The connection is back.
+        api.onAddFuel = {}
+        syncer.flush()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.pending.isEmpty())
+        assertEquals(1, state.fuelEntries.size)
+        // Counted once: the server has it now and the queue is empty.
+        assertEquals(60.0, state.summary!!.totalCost!!, 0.001)
+    }
+
+    @Test
+    fun aPendingRecordCanBeCorrectedAndRemoved() = runTest(dispatcher) {
+        val api = FakeCostApi().apply { onAddFuel = { throw IOException("offline") } }
+        val store = InMemoryPendingStore()
+        val viewModel = TripCostsViewModel(1, TripCostRepository(api), store)
+
+        viewModel.addFuel()
+        viewModel.saveFuel("10", "60")
+
+        viewModel.editRecord(viewModel.uiState.value.records.first())
+        viewModel.saveFuel("12", "75")
+        assertEquals(75.0, viewModel.uiState.value.pending.single().amount, 0.0)
+        // Correcting a pending record is local: only the first attempt reached the server.
+        assertEquals(1, api.fuelRequests.size)
+
+        viewModel.editRecord(viewModel.uiState.value.records.first())
+        viewModel.deleteEditedRecord()
+        assertTrue(viewModel.uiState.value.pending.isEmpty())
+        assertTrue(store.all().isEmpty())
+    }
+
+    @Test
+    fun onlyThisTripsPendingRecordsAreShown() = runTest(dispatcher) {
+        val store = InMemoryPendingStore(
+            listOf(
+                PendingRecord("x", 1, 0, fuel = FuelEntryRequestDTO(5.0, 30.0)),
+                PendingRecord("y", 2, 0, fuel = FuelEntryRequestDTO(5.0, 30.0))
+            )
+        )
+
+        val viewModel = TripCostsViewModel(1, TripCostRepository(FakeCostApi()), store)
+
+        assertEquals(listOf("x"), viewModel.uiState.value.pending.map { it.id })
+    }
+
+    @Test
+    fun theTotalsMergeThePendingRecordsIntoTheirCategories() {
+        val remote = TripCostSummaryResponseDTO(
+            fuel = FuelCostDTO(1, 10.0, 60.0),
+            expenses = listOf(ExpenseCategoryCostDTO("FOOD", 1, 30.0)),
+            totalCost = 90.0,
+            costPerKm = 0.9
+        )
+        val pending = listOf(
+            PendingRecord("a", 1, 0, fuel = FuelEntryRequestDTO(5.0, 35.0)),
+            PendingRecord("b", 1, 0, expense = TripExpenseRequestDTO("TOLL", 8.9, null)),
+            PendingRecord("c", 1, 0, expense = TripExpenseRequestDTO("FOOD", 20.0, null))
+        )
+
+        val merged = mergePending(remote, pending, distanceKm = 100.0)!!
+
+        assertEquals(2L, merged.fuel.entries)
+        assertEquals(15.0, merged.fuel.liters!!, 0.001)
+        assertEquals(listOf("TOLL", "FOOD"), merged.expenses.map { it.category })
+        assertEquals(50.0, merged.expenses.first { it.category == "FOOD" }.total, 0.001)
+        assertEquals(153.9, merged.totalCost!!, 0.001)
+        assertEquals(1.54, merged.costPerKm!!, 0.001)
+    }
+
+    @Test
+    fun withNothingPendingTheServersSummaryIsUntouched() {
+        val remote = TripCostSummaryResponseDTO(FuelCostDTO(0), emptyList())
+
+        assertEquals(remote, mergePending(remote, emptyList(), 50.0))
+        assertNull(mergePending(null, emptyList(), 50.0))
     }
 
     private class FakeCostApi : TripCostApiService {

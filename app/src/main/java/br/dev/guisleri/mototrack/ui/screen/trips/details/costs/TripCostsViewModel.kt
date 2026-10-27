@@ -8,17 +8,25 @@ import br.dev.guisleri.mototrack.data.model.trip.TripCostSummaryResponseDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripExpenseRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripExpenseResponseDTO
 import br.dev.guisleri.mototrack.data.network.apiErrorMessage
+import br.dev.guisleri.mototrack.data.offline.PendingRecord
+import br.dev.guisleri.mototrack.data.offline.PendingRecordStore
+import br.dev.guisleri.mototrack.data.offline.PendingRecordSyncer
 import br.dev.guisleri.mototrack.data.repository.TripCostRepository
+import br.dev.guisleri.mototrack.ui.feedback.Feedback
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.io.IOException
+import java.util.UUID
 
 const val MAX_LITERS_INTEGER_DIGITS = 4
 const val MAX_LITERS_FRACTION_DIGITS = 3
@@ -30,28 +38,80 @@ const val MAX_DESCRIPTION_LENGTH = 255
  * The money side of one trip: fuel stops, expenses and the summary the backend
  * computes from them. Every change is followed by a reload, so the numbers the
  * rider sees are always the backend's.
+ *
+ * With a [pendingStore], a new record registered without a connection is kept on the
+ * device and counted in the totals at once; the [syncer] sends it when the connection
+ * is back.
  */
 class TripCostsViewModel(
     private val tripId: Long,
-    private val repository: TripCostRepository
+    private val repository: TripCostRepository,
+    private val pendingStore: PendingRecordStore? = null,
+    private val syncer: PendingRecordSyncer? = null,
+    private val now: () -> Long = { System.currentTimeMillis() }
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TripCostsUiState())
 
     val uiState: StateFlow<TripCostsUiState> = _uiState.asStateFlow()
 
+    // One-off messages, buffered so none is lost while nobody is collecting.
+    private val _feedback = Channel<Feedback>(Channel.BUFFERED)
+
+    val feedback: Flow<Feedback> = _feedback.receiveAsFlow()
+
     private var loadJob: Job? = null
 
+    // What the server said, before the pending records are added to it.
+    private var remoteSummary: TripCostSummaryResponseDTO? = null
+    private var tripDistanceKm: Double? = null
+    private var lastPendingCount = 0
+
     init {
+        observePending()
         load(showLoading = true)
+        sendPending()
+    }
+
+    private fun observePending() {
+        val store = pendingStore ?: return
+
+        viewModelScope.launch {
+            store.observe().collect { all ->
+                val mine = all.filter { it.tripId == tripId }
+                val someWereSent = mine.size < lastPendingCount
+                lastPendingCount = mine.size
+
+                _uiState.value = withMergedSummary(_uiState.value.copy(pending = mine))
+
+                // What left the queue is now in the server's numbers.
+                if (someWereSent) refresh()
+            }
+        }
+    }
+
+    private fun sendPending() {
+        val sender = syncer ?: return
+
+        viewModelScope.launch { sender.flush() }
+    }
+
+    /** The trip's distance, to give the cost per km of what is still pending. */
+    fun onTripDistanceKnown(distanceKm: Double) {
+        tripDistanceKm = distanceKm
+        _uiState.value = withMergedSummary(_uiState.value)
     }
 
     fun retry() {
+        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         load(showLoading = true)
+        sendPending()
     }
 
     /** Reloads without hiding what is on screen; used on resume and after changes. */
     fun refresh() {
+        sendPending()
+
         val state = _uiState.value
         if (state.isLoading || state.isSaving) return
 
@@ -104,15 +164,21 @@ class TripCostsViewModel(
     }
 
     private fun applyFetched(fetched: Fetched) {
-        _uiState.value = _uiState.value.copy(
-            isLoading = false,
-            errorMessage = null,
-            refreshErrorMessage = null,
-            summary = fetched.summary,
-            fuelEntries = fetched.fuel,
-            expenses = fetched.expenses
+        remoteSummary = fetched.summary
+
+        _uiState.value = withMergedSummary(
+            _uiState.value.copy(
+                isLoading = false,
+                errorMessage = null,
+                refreshErrorMessage = null,
+                fuelEntries = fetched.fuel,
+                expenses = fetched.expenses
+            )
         )
     }
+
+    private fun withMergedSummary(state: TripCostsUiState): TripCostsUiState =
+        state.copy(summary = mergePending(remoteSummary, state.pending, tripDistanceKm))
 
     // -- Editor -------------------------------------------------------------
 
@@ -125,6 +191,12 @@ class TripCostsViewModel(
         when (record) {
             is TripRecord.Fuel -> TripRecordEditor.EditFuel(record.entry)
             is TripRecord.Expense -> TripRecordEditor.EditExpense(record.expense)
+            is TripRecord.Pending ->
+                if (record.isFuel) {
+                    TripRecordEditor.EditPendingFuel(record.record)
+                } else {
+                    TripRecordEditor.EditPendingExpense(record.record)
+                }
         }
     )
 
@@ -148,7 +220,13 @@ class TripCostsViewModel(
 
     fun saveFuel(litersText: String, totalCostText: String) {
         val editor = _uiState.value.editor
-        if (editor !is TripRecordEditor.NewFuel && editor !is TripRecordEditor.EditFuel) return
+        if (
+            editor !is TripRecordEditor.NewFuel &&
+            editor !is TripRecordEditor.EditFuel &&
+            editor !is TripRecordEditor.EditPendingFuel
+        ) {
+            return
+        }
 
         val liters = parseDecimalInput(litersText)
         val totalCost = parseDecimalInput(totalCostText)
@@ -166,13 +244,22 @@ class TripCostsViewModel(
 
         val request = FuelEntryRequestDTO(liters = liters, totalCost = totalCost)
 
-        mutate("salvar o abastecimento") {
-            when (editor) {
-                is TripRecordEditor.EditFuel ->
-                    repository.updateFuelEntry(tripId, editor.entry.id, request)
+        when (editor) {
+            is TripRecordEditor.EditPendingFuel ->
+                changePending(editor.record.copy(fuel = request))
 
-                else -> repository.addFuelEntry(tripId, request)
-            }
+            is TripRecordEditor.EditFuel ->
+                mutate("salvar o abastecimento") {
+                    repository.updateFuelEntry(tripId, editor.entry.id, request)
+                }
+
+            else ->
+                mutate(
+                    what = "salvar o abastecimento",
+                    offline = { newPending(fuel = request) }
+                ) {
+                    repository.addFuelEntry(tripId, request)
+                }
         }
     }
 
@@ -182,7 +269,11 @@ class TripCostsViewModel(
         description: String
     ) {
         val editor = _uiState.value.editor
-        if (editor !is TripRecordEditor.NewExpense && editor !is TripRecordEditor.EditExpense) {
+        if (
+            editor !is TripRecordEditor.NewExpense &&
+            editor !is TripRecordEditor.EditExpense &&
+            editor !is TripRecordEditor.EditPendingExpense
+        ) {
             return
         }
 
@@ -211,13 +302,22 @@ class TripCostsViewModel(
                 .takeIf { it.isNotEmpty() }
         )
 
-        mutate("salvar o gasto") {
-            when (editor) {
-                is TripRecordEditor.EditExpense ->
-                    repository.updateExpense(tripId, editor.expense.id, request)
+        when (editor) {
+            is TripRecordEditor.EditPendingExpense ->
+                changePending(editor.record.copy(expense = request))
 
-                else -> repository.addExpense(tripId, request)
-            }
+            is TripRecordEditor.EditExpense ->
+                mutate("salvar o gasto") {
+                    repository.updateExpense(tripId, editor.expense.id, request)
+                }
+
+            else ->
+                mutate(
+                    what = "salvar o gasto",
+                    offline = { newPending(expense = request) }
+                ) {
+                    repository.addExpense(tripId, request)
+                }
         }
     }
 
@@ -235,11 +335,58 @@ class TripCostsViewModel(
                     repository.deleteExpense(tripId, editor.expense.id)
                 }
 
+            is TripRecordEditor.EditPendingFuel ->
+                removePending(editor.record)
+
+            is TripRecordEditor.EditPendingExpense ->
+                removePending(editor.record)
+
             else -> Unit
         }
     }
 
-    private fun mutate(what: String, change: suspend () -> Unit) {
+    private fun changePending(record: PendingRecord) {
+        val store = pendingStore ?: return
+
+        viewModelScope.launch {
+            store.replace(record)
+            _uiState.value = _uiState.value.copy(editor = null, editorErrorMessage = null)
+        }
+    }
+
+    private fun removePending(record: PendingRecord) {
+        val store = pendingStore ?: return
+
+        viewModelScope.launch {
+            store.remove(record.id)
+            _uiState.value = _uiState.value.copy(editor = null, editorErrorMessage = null)
+        }
+    }
+
+    private suspend fun newPending(
+        fuel: FuelEntryRequestDTO? = null,
+        expense: TripExpenseRequestDTO? = null
+    ) {
+        pendingStore?.add(
+            PendingRecord(
+                id = UUID.randomUUID().toString(),
+                tripId = tripId,
+                createdAtMillis = now(),
+                fuel = fuel,
+                expense = expense
+            )
+        )
+    }
+
+    /**
+     * Runs [change] and reloads. With no connection and an [offline] fallback, the
+     * record is kept on the device instead of being lost.
+     */
+    private fun mutate(
+        what: String,
+        offline: (suspend () -> Unit)? = null,
+        change: suspend () -> Unit
+    ) {
         val state = _uiState.value
         if (state.isSaving) return
 
@@ -251,6 +398,25 @@ class TripCostsViewModel(
                 change()
             } catch (exception: CancellationException) {
                 throw exception
+            } catch (exception: IOException) {
+                if (offline != null && pendingStore != null) {
+                    offline()
+
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        editor = null,
+                        editorErrorMessage = null
+                    )
+                    _feedback.trySend(
+                        Feedback("Sem conexão: guardei o registro e envio assim que a internet voltar.")
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        editorErrorMessage = failureMessage(exception, what)
+                    )
+                }
+                return@launch
             } catch (exception: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,

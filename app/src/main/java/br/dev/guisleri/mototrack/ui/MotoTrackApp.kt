@@ -29,6 +29,9 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import br.dev.guisleri.mototrack.data.local.DataStoreMotorcyclePreferences
 import br.dev.guisleri.mototrack.data.maintenance.DataStoreMaintenanceStore
+import br.dev.guisleri.mototrack.data.offline.DataStorePendingRecordStore
+import br.dev.guisleri.mototrack.data.offline.OfflineServices
+import br.dev.guisleri.mototrack.data.offline.PendingRecordSyncer
 import br.dev.guisleri.mototrack.data.place.CityCatalog
 import br.dev.guisleri.mototrack.data.place.PlaceServices
 import br.dev.guisleri.mototrack.data.place.PublicApis
@@ -249,6 +252,15 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
         )
     }
 
+    val offlineServices = remember(tripCostRepository) {
+        val store = DataStorePendingRecordStore(context.applicationContext)
+
+        OfflineServices(
+            store = store,
+            syncer = PendingRecordSyncer(store, tripCostRepository)
+        )
+    }
+
     val placeServices = remember {
         PlaceServices(
             cities = CityCatalog(
@@ -427,6 +439,7 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             tripCostRepository = tripCostRepository,
                             maintenanceStore = maintenanceStore,
                             placeServices = placeServices,
+                            offline = offlineServices,
                             motorcycleRepository = motorcycleRepository,
                             motorcyclePreferences = motorcyclePreferences,
                             isLoggingOut = isLoggingOut,
@@ -437,6 +450,8 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                                         logoutErrorMessage = null
                                         // Reminders belong to the account that is leaving.
                                         reminderScheduler.cancelAll()
+                                        // Records waiting to be sent belong to this account too.
+                                        offlineServices.store.clear()
                                         try {
                                             authRepository.logout()
                                         } catch (exception: CancellationException) {

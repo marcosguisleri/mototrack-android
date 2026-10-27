@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Refresh
@@ -56,7 +57,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import br.dev.guisleri.mototrack.data.model.trip.FuelEntryRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripCostSummaryResponseDTO
+import br.dev.guisleri.mototrack.data.model.trip.TripExpenseRequestDTO
 import br.dev.guisleri.mototrack.data.model.trip.TripResponseDTO
 import br.dev.guisleri.mototrack.ui.components.ChoicePill
 import br.dev.guisleri.mototrack.ui.components.WarmTextField
@@ -363,6 +366,41 @@ internal fun TripRecordsCard(
     SectionCard(modifier = modifier) {
         SectionLabel("REGISTROS")
 
+        val waiting = records.count { it is TripRecord.Pending }
+
+        if (waiting > 0) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(WarmEmberTint)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CloudOff,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = WarmEmberDeep
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Text(
+                    text = if (waiting == 1) {
+                        "1 registro aguardando internet. Eu envio assim que ela voltar."
+                    } else {
+                        "$waiting registros aguardando internet. Eu envio assim que ela voltar."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = WarmEmberDeep
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(12.dp))
 
         if (records.isEmpty()) {
@@ -406,7 +444,26 @@ private fun RecordRow(
             record.category.label,
             record.expense.description.orEmpty()
         )
+
+        is TripRecord.Pending ->
+            if (record.isFuel) {
+                val fuel = record.record.fuel!!
+                Triple(
+                    Icons.Outlined.LocalGasStation,
+                    "Abastecimento",
+                    "${formatLiters(fuel.liters)} · ${formatMoney(fuel.totalCost / fuel.liters)}/L"
+                )
+            } else {
+                val category = record.category ?: ExpenseCategory.OTHER
+                Triple(
+                    category.icon,
+                    category.label,
+                    record.record.expense?.description.orEmpty()
+                )
+            }
     }
+
+    val isPending = record is TripRecord.Pending
 
     Row(
         modifier = Modifier
@@ -432,11 +489,15 @@ private fun RecordRow(
             )
 
             Text(
-                text = listOf(formatRecordTime(record.createdAt), detail)
+                text = listOf(
+                    if (isPending) "Aguardando envio" else formatRecordTime(record.createdAt),
+                    detail
+                )
                     .filter { it.isNotBlank() }
                     .joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
-                color = WarmMuted,
+                color = if (isPending) WarmEmberDeep else WarmMuted,
+                fontWeight = if (isPending) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -481,49 +542,59 @@ internal fun TripRecordEditorDialog(
     errorMessage: String?,
     actions: TripCostsActions
 ) {
-    val isFuel = editor is TripRecordEditor.NewFuel || editor is TripRecordEditor.EditFuel
-    val isEditing = editor is TripRecordEditor.EditFuel || editor is TripRecordEditor.EditExpense
+    val isFuel = editor is TripRecordEditor.NewFuel ||
+        editor is TripRecordEditor.EditFuel ||
+        editor is TripRecordEditor.EditPendingFuel
+    val isEditing = editor is TripRecordEditor.EditFuel ||
+        editor is TripRecordEditor.EditExpense ||
+        editor is TripRecordEditor.EditPendingFuel ||
+        editor is TripRecordEditor.EditPendingExpense
+
+    // What the record being corrected holds, whether it is on the server or still pending.
+    val editedFuel: FuelEntryRequestDTO? = when (editor) {
+        is TripRecordEditor.EditFuel -> FuelEntryRequestDTO(editor.entry.liters, editor.entry.totalCost)
+        is TripRecordEditor.EditPendingFuel -> editor.record.fuel
+        else -> null
+    }
+    val editedExpense: TripExpenseRequestDTO? = when (editor) {
+        is TripRecordEditor.EditExpense -> TripExpenseRequestDTO(
+            editor.expense.category, editor.expense.amount, editor.expense.description
+        )
+        is TripRecordEditor.EditPendingExpense -> editor.record.expense
+        else -> null
+    }
+
     // A toll has a window of its own; the other expenses never offer it as a category.
     val isToll = !isFuel && when (editor) {
         is TripRecordEditor.NewExpense -> editor.category == ExpenseCategory.TOLL
-        is TripRecordEditor.EditExpense -> ExpenseCategory.fromApi(editor.expense.category) == ExpenseCategory.TOLL
-        else -> false
+        else -> editedExpense?.let { ExpenseCategory.fromApi(it.category) == ExpenseCategory.TOLL } == true
     }
 
     var liters by remember(editor) {
         mutableStateOf(
-            (editor as? TripRecordEditor.EditFuel)
-                ?.let { formatDecimalInput(it.entry.liters, MAX_LITERS_FRACTION_DIGITS) }
-                .orEmpty()
+            editedFuel?.let { formatDecimalInput(it.liters, MAX_LITERS_FRACTION_DIGITS) }.orEmpty()
         )
     }
     var fuelCost by remember(editor) {
         mutableStateOf(
-            (editor as? TripRecordEditor.EditFuel)
-                ?.let { formatDecimalInput(it.entry.totalCost, MAX_MONEY_FRACTION_DIGITS) }
-                .orEmpty()
+            editedFuel?.let { formatDecimalInput(it.totalCost, MAX_MONEY_FRACTION_DIGITS) }.orEmpty()
         )
     }
     var category by remember(editor) {
         mutableStateOf(
             when (editor) {
                 is TripRecordEditor.NewExpense -> editor.category
-                is TripRecordEditor.EditExpense -> ExpenseCategory.fromApi(editor.expense.category)
-                else -> ExpenseCategory.OTHER
+                else -> editedExpense?.let { ExpenseCategory.fromApi(it.category) } ?: ExpenseCategory.OTHER
             }
         )
     }
     var amount by remember(editor) {
         mutableStateOf(
-            (editor as? TripRecordEditor.EditExpense)
-                ?.let { formatDecimalInput(it.expense.amount, MAX_MONEY_FRACTION_DIGITS) }
-                .orEmpty()
+            editedExpense?.let { formatDecimalInput(it.amount, MAX_MONEY_FRACTION_DIGITS) }.orEmpty()
         )
     }
     var description by remember(editor) {
-        mutableStateOf(
-            (editor as? TripRecordEditor.EditExpense)?.expense?.description.orEmpty()
-        )
+        mutableStateOf(editedExpense?.description.orEmpty())
     }
     var confirmDelete by remember(editor) { mutableStateOf(false) }
 

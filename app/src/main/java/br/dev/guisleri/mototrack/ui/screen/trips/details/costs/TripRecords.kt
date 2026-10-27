@@ -1,6 +1,7 @@
 package br.dev.guisleri.mototrack.ui.screen.trips.details.costs
 
 import br.dev.guisleri.mototrack.data.model.trip.FuelEntryResponseDTO
+import br.dev.guisleri.mototrack.data.offline.PendingRecord
 import br.dev.guisleri.mototrack.data.model.trip.TripExpenseResponseDTO
 import java.time.Instant
 
@@ -26,16 +27,30 @@ sealed interface TripRecord {
         override val amount: Double get() = expense.amount
         val category: ExpenseCategory get() = ExpenseCategory.fromApi(expense.category)
     }
+
+    /** Registered offline and still waiting to be sent. */
+    data class Pending(
+        val record: PendingRecord
+    ) : TripRecord {
+        override val id: Long get() = record.id.hashCode().toLong()
+        override val createdAt: Instant get() = Instant.ofEpochMilli(record.createdAtMillis)
+        override val amount: Double get() = record.amount
+        val isFuel: Boolean get() = record.fuel != null
+        val category: ExpenseCategory?
+            get() = record.expense?.let { ExpenseCategory.fromApi(it.category) }
+    }
 }
 
 /** Fuel stops and expenses together, the latest first. */
 fun tripRecords(
     fuelEntries: List<FuelEntryResponseDTO>,
-    expenses: List<TripExpenseResponseDTO>
+    expenses: List<TripExpenseResponseDTO>,
+    pending: List<PendingRecord> = emptyList()
 ): List<TripRecord> =
     (
         fuelEntries.map { TripRecord.Fuel(it, parseInstantOrEpoch(it.createdAt)) } +
-            expenses.map { TripRecord.Expense(it, parseInstantOrEpoch(it.createdAt)) }
+            expenses.map { TripRecord.Expense(it, parseInstantOrEpoch(it.createdAt)) } +
+            pending.map { TripRecord.Pending(it) }
         )
         .sortedWith(
             compareByDescending<TripRecord> { it.createdAt }

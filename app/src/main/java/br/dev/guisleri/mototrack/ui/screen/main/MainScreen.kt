@@ -26,7 +26,10 @@ import br.dev.guisleri.mototrack.ui.components.formatTripDate
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import android.net.ConnectivityManager
+import android.net.Network
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -87,6 +90,7 @@ import br.dev.guisleri.mototrack.ui.screen.trips.details.costs.TripCostsViewMode
 import br.dev.guisleri.mototrack.ui.screen.trips.details.costs.TripCostsViewModelFactory
 import br.dev.guisleri.mototrack.data.repository.TripCostRepository
 import br.dev.guisleri.mototrack.data.maintenance.MaintenanceStore
+import br.dev.guisleri.mototrack.data.offline.OfflineServices
 import br.dev.guisleri.mototrack.data.place.PlaceServices
 import br.dev.guisleri.mototrack.data.maintenance.maintenanceOverview
 import br.dev.guisleri.mototrack.data.maintenance.summarize
@@ -114,6 +118,7 @@ fun MainScreen(
     tripCostRepository: TripCostRepository,
     maintenanceStore: MaintenanceStore,
     placeServices: PlaceServices,
+    offline: OfflineServices,
     motorcycleRepository: MotorcycleRepository,
     motorcyclePreferences: MotorcyclePreferences,
     isLoggingOut: Boolean = false,
@@ -246,6 +251,46 @@ fun MainScreen(
     val maintenanceSummary = remember(selectedMaintenance, selectedTripKm) {
         selectedMaintenance?.let {
             summarize(maintenanceOverview(it, selectedTripKm, LocalDate.now()))
+        }
+    }
+
+    // Costs registered offline are sent as soon as there is a connection again: when the
+    // app opens, when the network comes back, and the rider is told what happened.
+    LaunchedEffect(offline) {
+        launch { offline.syncer.flush() }
+
+        offline.syncer.events.collect { event ->
+            showFeedback(
+                if (event.dropped > 0) {
+                    Feedback(
+                        message = buildString {
+                            if (event.sent > 0) append("${event.sent} enviado(s). ")
+                            append("${event.dropped} registro(s) não puderam ser enviados e foram descartados.")
+                        },
+                        kind = FeedbackKind.ERROR
+                    )
+                } else {
+                    Feedback(
+                        if (event.sent == 1) "1 registro enviado" else "${event.sent} registros enviados"
+                    )
+                }
+            )
+        }
+    }
+
+    DisposableEffect(offline, context) {
+        val manager = context.getSystemService(ConnectivityManager::class.java)
+
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                feedbackScope.launch { offline.syncer.flush() }
+            }
+        }
+
+        val registered = runCatching { manager?.registerDefaultNetworkCallback(callback) }.isSuccess
+
+        onDispose {
+            if (registered) runCatching { manager?.unregisterNetworkCallback(callback) }
         }
     }
 
@@ -813,7 +858,8 @@ fun MainScreen(
                                 key = "trip-costs-${destination.tripId}",
                                 factory = TripCostsViewModelFactory(
                                     tripId = destination.tripId,
-                                    repository = tripCostRepository
+                                    repository = tripCostRepository,
+                                    offline = offline
                                 )
                             )
 
@@ -832,6 +878,19 @@ fun MainScreen(
                                     onSaveExpense = tripCostsViewModel::saveExpense,
                                     onDeleteRecord = tripCostsViewModel::deleteEditedRecord
                                 )
+                            }
+
+                            LaunchedEffect(tripCostsViewModel) {
+                                tripCostsViewModel.feedback.collect(showFeedback)
+                            }
+
+                            // The cost per km of what is pending needs the trip's distance.
+                            LaunchedEffect(
+                                (tripDetailsUiState as? TripDetailsUiState.Success)?.trip?.distanceKm
+                            ) {
+                                (tripDetailsUiState as? TripDetailsUiState.Success)?.trip?.let {
+                                    tripCostsViewModel.onTripDistanceKnown(it.distanceKm)
+                                }
                             }
 
                             // Nudges that follow this trip: one if it is left in progress for
@@ -903,6 +962,8 @@ fun MainScreen(
                                 if (tripWasDeleted) {
                                     reminderScheduler.cancelOne(destination.tripId, ReminderKind.FORGOTTEN)
                                     reminderScheduler.cancelOne(destination.tripId, ReminderKind.COSTS)
+                                    // Nothing waiting to be sent can belong to a trip that is gone.
+                                    offline.store.removeForTrip(destination.tripId)
                                     // The photos only make sense with their trip.
                                     feedbackScope.launch { tripPhotoStorage.clear(destination.tripId) }
                                     (tripDetailsUiState as? TripDetailsUiState.Success)?.trip?.let { trip ->
