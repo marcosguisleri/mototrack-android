@@ -86,4 +86,16 @@ data class TripCreateUiState(
     val distanceSource: DistanceSource? = null
 ) {
     val isEditing: Boolean get() = editingTripId != null
+
+    /**
+     * Whether the user changed the form since [base]: the empty form when creating, the trip as it
+     * was loaded when editing. The motorcycle only counts when editing, as it is picked for them.
+     */
+    fun differsFrom(base: TripCreateUiState): Boolean =
+        origin != base.origin ||
+            destination != base.destination ||
+            distance != base.distance ||
+            tripDate != base.tripDate ||
+            terrain != base.terrain ||
+            (base.isEditing && selectedMotorcycleId != base.selectedMotorcycleId)
 }

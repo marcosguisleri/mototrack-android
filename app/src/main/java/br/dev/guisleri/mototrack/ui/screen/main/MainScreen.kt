@@ -1,5 +1,6 @@
 package br.dev.guisleri.mototrack.ui.screen.main
 
+import br.dev.guisleri.mototrack.ui.components.UnsavedChangesGuard
 import br.dev.guisleri.mototrack.ui.components.WarmDialog
 import androidx.compose.material.icons.outlined.TwoWheeler
 import androidx.compose.material.icons.Icons
@@ -1156,25 +1157,39 @@ private fun TripFormScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    TripCreateScreen(
-        uiState = uiState,
-        onBackClick = onBackClick,
-        onModeSelected = viewModel::onModeSelected,
-        onOriginChange = viewModel::onOriginChange,
-        onDestinationChange = viewModel::onDestinationChange,
-        onOriginCitySelected = viewModel::onOriginCitySelected,
-        onDestinationCitySelected = viewModel::onDestinationCitySelected,
-        onSwapRouteClick = viewModel::swapRoute,
-        onDistanceChange = viewModel::onDistanceChange,
-        onApplyDistanceSuggestionClick = viewModel::applyDistanceSuggestion,
-        onTripDateSelected = viewModel::onTripDateSelected,
-        onTerrainSelected = viewModel::onTerrainSelected,
-        onMotorcycleSelected = viewModel::onMotorcycleSelected,
-        onRetryMotorcyclesClick = viewModel::loadMotorcycles,
-        onSubmitClick = viewModel::submit,
-        onRetryTripClick = viewModel::loadTrip,
-        modifier = modifier
-    )
+    // What the form is compared with: empty when creating, the trip as loaded when editing.
+    var base by remember { mutableStateOf(if (uiState.isEditing) null else TripCreateUiState()) }
+
+    LaunchedEffect(uiState.isLoadingTrip, uiState.origin) {
+        if (base == null && !uiState.isLoadingTrip && uiState.origin.isNotBlank()) {
+            base = uiState
+        }
+    }
+
+    UnsavedChangesGuard(
+        hasChanges = !uiState.isSubmitting && base?.let { uiState.differsFrom(it) } == true,
+        onExit = onBackClick
+    ) { requestExit ->
+        TripCreateScreen(
+            uiState = uiState,
+            onBackClick = requestExit,
+            onModeSelected = viewModel::onModeSelected,
+            onOriginChange = viewModel::onOriginChange,
+            onDestinationChange = viewModel::onDestinationChange,
+            onOriginCitySelected = viewModel::onOriginCitySelected,
+            onDestinationCitySelected = viewModel::onDestinationCitySelected,
+            onSwapRouteClick = viewModel::swapRoute,
+            onDistanceChange = viewModel::onDistanceChange,
+            onApplyDistanceSuggestionClick = viewModel::applyDistanceSuggestion,
+            onTripDateSelected = viewModel::onTripDateSelected,
+            onTerrainSelected = viewModel::onTerrainSelected,
+            onMotorcycleSelected = viewModel::onMotorcycleSelected,
+            onRetryMotorcyclesClick = viewModel::loadMotorcycles,
+            onSubmitClick = viewModel::submit,
+            onRetryTripClick = viewModel::loadTrip,
+            modifier = modifier
+        )
+    }
 }
 
 /** The motorcycle form, whether it registers a motorcycle or edits one. */
@@ -1185,19 +1200,34 @@ private fun MotorcycleFormScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    MotorcycleCreateScreen(
-        uiState = uiState,
-        onBackClick = onBackClick,
-        onTypeSelected = viewModel::onTypeSelected,
-        onBrandChange = viewModel::onBrandChange,
-        onModelChange = viewModel::onModelChange,
-        onYearChange = viewModel::onYearChange,
-        onEngineCapacityChange = viewModel::onEngineCapacityChange,
-        onColorSelected = viewModel::onColorSelected,
-        onCustomColorSelected = viewModel::onCustomColorSelected,
-        onCustomColorChange = viewModel::onCustomColorChange,
-        onSubmitClick = viewModel::submit,
-        onRetryLoadClick = viewModel::loadMotorcycle,
-        modifier = modifier
-    )
+    var base by remember {
+        mutableStateOf(if (uiState.isEditing) null else MotorcycleCreateUiState())
+    }
+
+    LaunchedEffect(uiState.isLoadingMotorcycle, uiState.brand) {
+        if (base == null && !uiState.isLoadingMotorcycle && uiState.brand.isNotBlank()) {
+            base = uiState
+        }
+    }
+
+    UnsavedChangesGuard(
+        hasChanges = !uiState.isSubmitting && base?.let { uiState.differsFrom(it) } == true,
+        onExit = onBackClick
+    ) { requestExit ->
+        MotorcycleCreateScreen(
+            uiState = uiState,
+            onBackClick = requestExit,
+            onTypeSelected = viewModel::onTypeSelected,
+            onBrandChange = viewModel::onBrandChange,
+            onModelChange = viewModel::onModelChange,
+            onYearChange = viewModel::onYearChange,
+            onEngineCapacityChange = viewModel::onEngineCapacityChange,
+            onColorSelected = viewModel::onColorSelected,
+            onCustomColorSelected = viewModel::onCustomColorSelected,
+            onCustomColorChange = viewModel::onCustomColorChange,
+            onSubmitClick = viewModel::submit,
+            onRetryLoadClick = viewModel::loadMotorcycle,
+            modifier = modifier
+        )
+    }
 }

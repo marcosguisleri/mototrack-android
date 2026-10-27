@@ -26,7 +26,9 @@ import br.dev.guisleri.mototrack.ui.theme.WarmInk
 internal fun BrandMark(
     modifier: Modifier = Modifier,
     // Smaller, for a bar that shares its width with buttons.
-    compact: Boolean = false
+    compact: Boolean = false,
+    // Only the symbol, for a bar too narrow for the name.
+    showName: Boolean = true
 ) {
     Row(
         modifier = modifier,
@@ -40,6 +42,8 @@ internal fun BrandMark(
                 height = if (compact) 18.dp else 24.dp
             )
         )
+
+        if (!showName) return@Row
 
         Spacer(modifier = Modifier.width(if (compact) 6.dp else 8.dp))
 

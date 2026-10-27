@@ -12,6 +12,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -585,6 +586,12 @@ private fun TripDetailsTopBar(
     onEditClick: (() -> Unit)? = null,
     onDeleteClick: (() -> Unit)? = null
 ) {
+    // Each button takes 44dp plus a 10dp gap; the logo needs about 120dp and some air around it.
+    val buttons = 1 + listOfNotNull(onShareClick, onEditClick, onDeleteClick).size
+
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val roomForName = maxWidth - 54.dp * buttons >= 150.dp
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -597,7 +604,7 @@ private fun TripDetailsTopBar(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        BrandMark(compact = true)
+        BrandMark(compact = true, showName = roomForName)
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -628,6 +635,7 @@ private fun TripDetailsTopBar(
                 onClick = onDeleteClick
             )
         }
+    }
     }
 }
 

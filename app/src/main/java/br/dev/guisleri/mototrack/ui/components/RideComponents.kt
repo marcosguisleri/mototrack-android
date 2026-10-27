@@ -527,7 +527,7 @@ internal fun PlanTripHero(
                 } else {
                     "Planeje sua próxima rota"
                 },
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = WarmInk
             )

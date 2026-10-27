@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -66,6 +68,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import br.dev.guisleri.mototrack.ui.components.clearFocusOnTap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -160,6 +163,7 @@ fun TripCreateScreen(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
+                .clearFocusOnTap()
                 .padding(
                     start = 20.dp,
                     end = 20.dp,
@@ -414,6 +418,7 @@ private fun TripCreateModeCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(IntrinsicSize.Min)
                     .selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -497,6 +502,7 @@ private fun ModeOption(
 
     Column(
         modifier = modifier
+            .fillMaxHeight()
             .clip(RoundedCornerShape(20.dp))
             .background(containerColor)
             .selectable(

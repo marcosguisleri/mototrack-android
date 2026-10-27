@@ -26,4 +26,13 @@ data class MotorcycleCreateUiState(
     val isUpdated: Boolean = false
 ) {
     val isEditing: Boolean get() = editingMotorcycleId != null
+
+    /** Whether the user changed the form since [base]: the empty form, or the motorcycle as loaded. */
+    fun differsFrom(base: MotorcycleCreateUiState): Boolean =
+        type != base.type ||
+            brand != base.brand ||
+            model != base.model ||
+            year != base.year ||
+            engineCapacity != base.engineCapacity ||
+            color != base.color
 }

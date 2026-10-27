@@ -18,6 +18,11 @@ val keystoreProperties = Properties().apply {
 val releaseApiBaseUrl: String? =
     providers.gradleProperty("mototrack.apiBaseUrl").orNull
 
+// Celular físico no lugar do emulador: -Pmototrack.debugApiBaseUrl=http://localhost:8080/
+// (com `adb reverse tcp:8080 tcp:8080`) ou o IP do computador na rede Wi-Fi.
+val debugApiBaseUrl: String =
+    providers.gradleProperty("mototrack.debugApiBaseUrl").getOrElse("http://10.0.2.2:8080/")
+
 android {
     namespace = "br.dev.guisleri.mototrack"
 
@@ -52,7 +57,7 @@ android {
     buildTypes {
         debug {
             // Emulador: 10.0.2.2 é o localhost da máquina de desenvolvimento.
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080/\"")
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
         }
         release {
             optimization {
