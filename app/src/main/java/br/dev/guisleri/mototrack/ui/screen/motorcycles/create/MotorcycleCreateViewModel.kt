@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import br.dev.guisleri.mototrack.data.model.common.ApiErrorResponseDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.CreateMotorcycleRequestDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleType
+import br.dev.guisleri.mototrack.data.model.motorcycle.UpdateMotorcycleRequestDTO
+import br.dev.guisleri.mototrack.ui.components.MotorcycleColorOptions
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,12 +29,74 @@ private val apiErrorJson = Json {
 }
 
 class MotorcycleCreateViewModel(
-    private val motorcycleRepository: MotorcycleRepository
+    private val motorcycleRepository: MotorcycleRepository,
+    private val editingMotorcycleId: Long? = null
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(MotorcycleCreateUiState())
+    private val _uiState = MutableStateFlow(
+        MotorcycleCreateUiState(
+            editingMotorcycleId = editingMotorcycleId,
+            isLoadingMotorcycle = editingMotorcycleId != null
+        )
+    )
 
     val uiState: StateFlow<MotorcycleCreateUiState> = _uiState.asStateFlow()
+
+    init {
+        loadMotorcycle()
+    }
+
+    /** When editing, fills the form with the motorcycle as the server has it. */
+    fun loadMotorcycle() {
+        val motorcycleId = editingMotorcycleId ?: return
+
+        _uiState.value = _uiState.value.copy(
+            isLoadingMotorcycle = true,
+            loadErrorMessage = null
+        )
+
+        viewModelScope.launch {
+            try {
+                val motorcycle = motorcycleRepository.getMotorcycles()
+                    .firstOrNull { it.id == motorcycleId }
+
+                if (motorcycle == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingMotorcycle = false,
+                        loadErrorMessage = "Não encontramos esta moto na sua garagem."
+                    )
+                    return@launch
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    isLoadingMotorcycle = false,
+                    type = MotorcycleType.fromApi(motorcycle.type),
+                    brand = motorcycle.brand,
+                    model = motorcycle.model,
+                    year = motorcycle.year.toString(),
+                    engineCapacity = motorcycle.engineCapacity.toString(),
+                    color = motorcycle.color,
+                    // A colour outside the swatches was typed by the rider.
+                    isCustomColor = MotorcycleColorOptions.none { it.first == motorcycle.color }
+                )
+
+            } catch (exception: CancellationException) {
+                throw exception
+
+            } catch (exception: IOException) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingMotorcycle = false,
+                    loadErrorMessage = "Não foi possível comunicar com o servidor."
+                )
+
+            } catch (exception: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingMotorcycle = false,
+                    loadErrorMessage = "Não foi possível carregar a moto."
+                )
+            }
+        }
+    }
 
     fun onTypeSelected(type: MotorcycleType) {
         _uiState.value = _uiState.value.copy(
@@ -105,7 +169,9 @@ class MotorcycleCreateViewModel(
 
     fun submit() {
         val state = _uiState.value
-        if (state.isSubmitting) return
+        if (state.isSubmitting || state.isLoadingMotorcycle || state.loadErrorMessage != null) {
+            return
+        }
 
         val brand = state.brand.trim()
         val model = state.model.trim()
@@ -153,20 +219,35 @@ class MotorcycleCreateViewModel(
 
         viewModelScope.launch {
             try {
-                motorcycleRepository.createMotorcycle(
-                    CreateMotorcycleRequestDTO(
-                        brand = brand,
-                        model = model,
-                        color = color,
-                        year = year,
-                        engineCapacity = engineCapacity,
-                        type = type.apiValue
+                if (editingMotorcycleId != null) {
+                    motorcycleRepository.updateMotorcycle(
+                        motorcycleId = editingMotorcycleId,
+                        request = UpdateMotorcycleRequestDTO(
+                            brand = brand,
+                            model = model,
+                            color = color,
+                            year = year,
+                            engineCapacity = engineCapacity,
+                            type = type.apiValue
+                        )
                     )
-                )
+                } else {
+                    motorcycleRepository.createMotorcycle(
+                        CreateMotorcycleRequestDTO(
+                            brand = brand,
+                            model = model,
+                            color = color,
+                            year = year,
+                            engineCapacity = engineCapacity,
+                            type = type.apiValue
+                        )
+                    )
+                }
 
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
-                    isCreated = true
+                    isCreated = editingMotorcycleId == null,
+                    isUpdated = editingMotorcycleId != null
                 )
 
             } catch (exception: CancellationException) {
@@ -177,7 +258,7 @@ class MotorcycleCreateViewModel(
                     isSubmitting = false,
                     submitErrorMessage =
                         getApiErrorMessage(exception)
-                            ?: "Não foi possível cadastrar a moto."
+                            ?: failureText()
                 )
 
             } catch (exception: IOException) {
@@ -189,11 +270,18 @@ class MotorcycleCreateViewModel(
             } catch (exception: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
-                    submitErrorMessage = "Não foi possível cadastrar a moto."
+                    submitErrorMessage = failureText()
                 )
             }
         }
     }
+
+    private fun failureText(): String =
+        if (editingMotorcycleId != null) {
+            "Não foi possível salvar as alterações."
+        } else {
+            "Não foi possível cadastrar a moto."
+        }
 
     private fun getApiErrorMessage(
         exception: HttpException

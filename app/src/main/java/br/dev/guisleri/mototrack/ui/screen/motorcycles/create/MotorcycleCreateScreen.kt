@@ -51,6 +51,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,6 +103,7 @@ fun MotorcycleCreateScreen(
     onCustomColorSelected: () -> Unit,
     onCustomColorChange: (String) -> Unit,
     onSubmitClick: () -> Unit,
+    onRetryLoadClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -126,6 +128,15 @@ fun MotorcycleCreateScreen(
                 contentDescription = "Voltar",
                 onClick = onBackClick
             )
+
+            if (uiState.isLoadingMotorcycle || uiState.loadErrorMessage != null) {
+                MotorcycleLoadStatus(
+                    isLoading = uiState.isLoadingMotorcycle,
+                    message = uiState.loadErrorMessage,
+                    onRetryClick = onRetryLoadClick
+                )
+                return@Column
+            }
 
             MotorcyclePreviewCard(uiState = uiState)
 
@@ -158,6 +169,40 @@ fun MotorcycleCreateScreen(
             uiState = uiState,
             onSubmitClick = onSubmitClick
         )
+    }
+}
+
+@Composable
+private fun MotorcycleLoadStatus(
+    isLoading: Boolean,
+    message: String?,
+    onRetryClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp),
+                strokeWidth = 3.dp,
+                color = WarmEmber
+            )
+        } else {
+            Text(
+                text = message.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+
+            TextButton(onClick = onRetryClick) {
+                Text(text = "Tentar novamente", color = WarmEmber, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -662,7 +707,9 @@ private fun SubmitBar(
 
             Button(
                 onClick = onSubmitClick,
-                enabled = !uiState.isSubmitting,
+                enabled = !uiState.isSubmitting &&
+                    !uiState.isLoadingMotorcycle &&
+                    uiState.loadErrorMessage == null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 58.dp),
@@ -689,7 +736,7 @@ private fun SubmitBar(
                     )
                 } else {
                     Text(
-                        text = "Cadastrar moto",
+                        text = if (uiState.isEditing) "Salvar alterações" else "Cadastrar moto",
                         fontWeight = FontWeight.Bold
                     )
 

@@ -7,6 +7,8 @@ import br.dev.guisleri.mototrack.ui.screen.motorcycles.create.MotorcycleCreateVi
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.create.MotorcycleCreateViewModel
 import br.dev.guisleri.mototrack.ui.screen.motorcycles.create.MotorcycleCreateScreen
 import br.dev.guisleri.mototrack.ui.navigation.MotorcycleCreateDestination
+import br.dev.guisleri.mototrack.ui.navigation.MotorcycleEditDestination
+import br.dev.guisleri.mototrack.ui.screen.motorcycles.create.MotorcycleCreateUiState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -481,24 +483,57 @@ fun MainScreen(
                                 }
                             }
 
-                            MotorcycleCreateScreen(
+                            MotorcycleFormScreen(
+                                viewModel = motorcycleCreateViewModel,
                                 uiState = motorcycleCreateUiState,
                                 onBackClick = {
                                     backStack.removeLastOrNull()
                                 },
-                                onTypeSelected = motorcycleCreateViewModel::onTypeSelected,
-                                onBrandChange = motorcycleCreateViewModel::onBrandChange,
-                                onModelChange = motorcycleCreateViewModel::onModelChange,
-                                onYearChange = motorcycleCreateViewModel::onYearChange,
-                                onEngineCapacityChange =
-                                    motorcycleCreateViewModel::onEngineCapacityChange,
-                                onColorSelected =
-                                    motorcycleCreateViewModel::onColorSelected,
-                                onCustomColorSelected =
-                                    motorcycleCreateViewModel::onCustomColorSelected,
-                                onCustomColorChange =
-                                    motorcycleCreateViewModel::onCustomColorChange,
-                                onSubmitClick = motorcycleCreateViewModel::submit,
+                                modifier = Modifier
+                                    .background(WarmCanvas)
+                                    .padding(innerPadding)
+                                    .consumeWindowInsets(innerPadding)
+                            )
+                        }
+
+                    is MotorcycleEditDestination ->
+                        NavEntry(destination) {
+
+                            val motorcycleEditViewModel: MotorcycleCreateViewModel =
+                                viewModel(
+                                    key = "motorcycle-edit-${destination.motorcycleId}",
+                                    factory = MotorcycleCreateViewModelFactory(
+                                        motorcycleRepository = motorcycleRepository,
+                                        editingMotorcycleId = destination.motorcycleId
+                                    )
+                                )
+
+                            val motorcycleEditUiState by motorcycleEditViewModel
+                                .uiState
+                                .collectAsStateWithLifecycle()
+
+                            LaunchedEffect(motorcycleEditUiState.isUpdated) {
+                                if (motorcycleEditUiState.isUpdated) {
+                                    showFeedback(
+                                        Feedback(
+                                            "Moto atualizada: " +
+                                                    "${motorcycleEditUiState.brand.trim()} " +
+                                                    motorcycleEditUiState.model.trim()
+                                        )
+                                    )
+                                    motorcyclesViewModel.refresh()
+                                    homeViewModel.loadHome()
+                                    tripsViewModel.refreshTrips()
+                                    backStack.removeLastOrNull()
+                                }
+                            }
+
+                            MotorcycleFormScreen(
+                                viewModel = motorcycleEditViewModel,
+                                uiState = motorcycleEditUiState,
+                                onBackClick = {
+                                    backStack.removeLastOrNull()
+                                },
                                 modifier = Modifier
                                     .background(WarmCanvas)
                                     .padding(innerPadding)
@@ -610,6 +645,9 @@ fun MainScreen(
                                     motorcyclesViewModel.loadMotorcycles()
                                 },
                                 onRefresh = motorcyclesViewModel::refresh,
+                                onEditMotorcycleClick = { motorcycleId ->
+                                    backStack.add(MotorcycleEditDestination(motorcycleId))
+                                },
                                 onRetryStatisticsClick = {
                                     motorcyclesViewModel.retrySelectedStatistics()
                                 },
@@ -963,6 +1001,31 @@ private fun TripFormScreen(
         onRetryMotorcyclesClick = viewModel::loadMotorcycles,
         onSubmitClick = viewModel::submit,
         onRetryTripClick = viewModel::loadTrip,
+        modifier = modifier
+    )
+}
+
+/** The motorcycle form, whether it registers a motorcycle or edits one. */
+@Composable
+private fun MotorcycleFormScreen(
+    viewModel: MotorcycleCreateViewModel,
+    uiState: MotorcycleCreateUiState,
+    onBackClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    MotorcycleCreateScreen(
+        uiState = uiState,
+        onBackClick = onBackClick,
+        onTypeSelected = viewModel::onTypeSelected,
+        onBrandChange = viewModel::onBrandChange,
+        onModelChange = viewModel::onModelChange,
+        onYearChange = viewModel::onYearChange,
+        onEngineCapacityChange = viewModel::onEngineCapacityChange,
+        onColorSelected = viewModel::onColorSelected,
+        onCustomColorSelected = viewModel::onCustomColorSelected,
+        onCustomColorChange = viewModel::onCustomColorChange,
+        onSubmitClick = viewModel::submit,
+        onRetryLoadClick = viewModel::loadMotorcycle,
         modifier = modifier
     )
 }

@@ -722,6 +722,12 @@ class TripCreateViewModelTest {
         private val motorcycles: List<MotorcycleResponseDTO>
     ) : MotorcycleApiService {
 
+        override suspend fun updateMotorcycle(
+            motorcycleId: Long,
+            request: br.dev.guisleri.mototrack.data.model.motorcycle.UpdateMotorcycleRequestDTO
+        ): br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO =
+            throw AssertionError("Unexpected motorcycle update")
+
         override suspend fun getMotorcycles(): List<MotorcycleResponseDTO> =
             motorcycles
 

@@ -5,7 +5,8 @@ import androidx.lifecycle.ViewModelProvider
 import br.dev.guisleri.mototrack.data.repository.MotorcycleRepository
 
 class MotorcycleCreateViewModelFactory(
-    private val motorcycleRepository: MotorcycleRepository
+    private val motorcycleRepository: MotorcycleRepository,
+    private val editingMotorcycleId: Long? = null
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -14,7 +15,8 @@ class MotorcycleCreateViewModelFactory(
     ): T {
         if (modelClass.isAssignableFrom(MotorcycleCreateViewModel::class.java)) {
             return MotorcycleCreateViewModel(
-                motorcycleRepository = motorcycleRepository
+                motorcycleRepository = motorcycleRepository,
+                editingMotorcycleId = editingMotorcycleId
             ) as T
         }
 

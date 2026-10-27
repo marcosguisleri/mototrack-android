@@ -3,6 +3,7 @@ package br.dev.guisleri.mototrack.data.repository
 import br.dev.guisleri.mototrack.data.model.motorcycle.CreateMotorcycleRequestDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleStatisticsResponseDTO
+import br.dev.guisleri.mototrack.data.model.motorcycle.UpdateMotorcycleRequestDTO
 import br.dev.guisleri.mototrack.data.remote.motorcycle.MotorcycleApiService
 
 class MotorcycleRepository(
@@ -17,6 +18,16 @@ class MotorcycleRepository(
         request: CreateMotorcycleRequestDTO
     ): MotorcycleResponseDTO {
         return motorcycleApiService.createMotorcycle(request)
+    }
+
+    suspend fun updateMotorcycle(
+        motorcycleId: Long,
+        request: UpdateMotorcycleRequestDTO
+    ): MotorcycleResponseDTO {
+        return motorcycleApiService.updateMotorcycle(
+            motorcycleId = motorcycleId,
+            request = request
+        )
     }
 
     suspend fun deleteMotorcycle(

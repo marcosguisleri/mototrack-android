@@ -5,6 +5,7 @@ package br.dev.guisleri.mototrack.ui.screen.motorcycles.create
 import br.dev.guisleri.mototrack.data.model.motorcycle.CreateMotorcycleRequestDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleOwnerDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleType
+import br.dev.guisleri.mototrack.data.model.motorcycle.UpdateMotorcycleRequestDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO
 import br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleStatisticsResponseDTO
 import br.dev.guisleri.mototrack.data.remote.motorcycle.MotorcycleApiService
@@ -180,8 +181,101 @@ class MotorcycleCreateViewModelTest {
         assertNull(viewModel.uiState.value.brandError)
     }
 
-    private fun viewModel(api: FakeApi = FakeApi()) =
-        MotorcycleCreateViewModel(MotorcycleRepository(api))
+    private fun viewModel(api: FakeApi = FakeApi(), editingMotorcycleId: Long? = null) =
+        MotorcycleCreateViewModel(MotorcycleRepository(api), editingMotorcycleId)
+
+    private fun stored(
+        id: Long = 7,
+        color: String = "Preta",
+        type: String? = "TRAIL"
+    ) = MotorcycleResponseDTO(
+        id = id, brand = "Honda", model = "NX 500", color = color, year = 2025,
+        engineCapacity = 471, type = type,
+        owner = MotorcycleOwnerDTO(1, "Rider", "rider@example.com")
+    )
+
+    @Test
+    fun editingFillsTheFormWithTheMotorcycle() = runTest(dispatcher) {
+        val api = FakeApi().apply { stored = listOf(stored()) }
+
+        val state = viewModel(api, editingMotorcycleId = 7).uiState.value
+
+        assertTrue(state.isEditing)
+        assertFalse(state.isLoadingMotorcycle)
+        assertEquals("Honda", state.brand)
+        assertEquals("NX 500", state.model)
+        assertEquals("2025", state.year)
+        assertEquals("471", state.engineCapacity)
+        assertEquals("Preta", state.color)
+        assertFalse(state.isCustomColor)
+        assertEquals(MotorcycleType.TRAIL, state.type)
+    }
+
+    @Test
+    fun aColourOutsideTheSwatchesIsShownAsCustom() = runTest(dispatcher) {
+        val api = FakeApi().apply { stored = listOf(stored(color = "Verde militar")) }
+
+        val state = viewModel(api, editingMotorcycleId = 7).uiState.value
+
+        assertTrue(state.isCustomColor)
+        assertEquals("Verde militar", state.color)
+    }
+
+    @Test
+    fun savingAnEditUpdatesTheMotorcycleInsteadOfCreatingOne() = runTest(dispatcher) {
+        val api = FakeApi().apply { stored = listOf(stored()) }
+        val viewModel = viewModel(api, editingMotorcycleId = 7)
+
+        viewModel.onModelChange("NX 500 Adventure")
+        viewModel.onColorSelected("Azul")
+        viewModel.submit()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isUpdated)
+        assertFalse(state.isCreated)
+        assertTrue(api.requests.isEmpty())
+        assertEquals(
+            listOf(
+                7L to UpdateMotorcycleRequestDTO(
+                    brand = "Honda",
+                    model = "NX 500 Adventure",
+                    color = "Azul",
+                    year = 2025,
+                    engineCapacity = 471,
+                    type = "TRAIL"
+                )
+            ),
+            api.updates
+        )
+    }
+
+    @Test
+    fun aFailedLoadBlocksSavingUntilItIsRetried() = runTest(dispatcher) {
+        val api = FakeApi().apply {
+            stored = listOf(stored())
+            loadFailure = IOException("offline")
+        }
+        val viewModel = viewModel(api, editingMotorcycleId = 7)
+
+        assertNotNull(viewModel.uiState.value.loadErrorMessage)
+        viewModel.submit()
+        assertTrue(api.updates.isEmpty())
+
+        api.loadFailure = null
+        viewModel.loadMotorcycle()
+
+        assertNull(viewModel.uiState.value.loadErrorMessage)
+        assertEquals("Honda", viewModel.uiState.value.brand)
+    }
+
+    @Test
+    fun aMotorcycleThatIsNoLongerThereSaysSo() = runTest(dispatcher) {
+        val api = FakeApi().apply { stored = emptyList() }
+
+        val state = viewModel(api, editingMotorcycleId = 7).uiState.value
+
+        assertEquals("Não encontramos esta moto na sua garagem.", state.loadErrorMessage)
+    }
 
     private fun filledViewModel(api: FakeApi = FakeApi()): MotorcycleCreateViewModel =
         viewModel(api).also {
@@ -195,10 +289,25 @@ class MotorcycleCreateViewModelTest {
 
     private class FakeApi : MotorcycleApiService {
         val requests = mutableListOf<CreateMotorcycleRequestDTO>()
+        val updates = mutableListOf<Pair<Long, UpdateMotorcycleRequestDTO>>()
+        var stored: List<MotorcycleResponseDTO> = emptyList()
         var failure: Exception? = null
+        var loadFailure: Exception? = null
 
-        override suspend fun getMotorcycles(): List<MotorcycleResponseDTO> =
-            throw AssertionError("Unexpected list request")
+        override suspend fun getMotorcycles(): List<MotorcycleResponseDTO> {
+            loadFailure?.let { throw it }
+            return stored
+        }
+
+        override suspend fun updateMotorcycle(
+            motorcycleId: Long,
+            request: UpdateMotorcycleRequestDTO
+        ): MotorcycleResponseDTO {
+            failure?.let { throw it }
+            updates += motorcycleId to request
+
+            return stored.first { it.id == motorcycleId }
+        }
 
         override suspend fun createMotorcycle(
             request: CreateMotorcycleRequestDTO

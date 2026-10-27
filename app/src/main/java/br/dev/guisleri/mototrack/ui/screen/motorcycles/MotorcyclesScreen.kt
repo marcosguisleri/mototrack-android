@@ -45,6 +45,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Park
@@ -142,6 +143,7 @@ fun MotorcyclesScreen(
     onHistoryClick: (Long) -> Unit,
     onTripClick: (Long) -> Unit,
     onAddMotorcycleClick: () -> Unit,
+    onEditMotorcycleClick: (Long) -> Unit,
     onDeleteMotorcycleClick: (Long) -> Unit,
     onDismissDeleteIssue: () -> Unit,
     tripCounts: Map<Long, Int>?,
@@ -187,6 +189,7 @@ fun MotorcyclesScreen(
                     onHistoryClick = onHistoryClick,
                     onTripClick = onTripClick,
                     onAddMotorcycleClick = onAddMotorcycleClick,
+                    onEditMotorcycleClick = onEditMotorcycleClick,
                     onDeleteMotorcycleClick = onDeleteMotorcycleClick,
                     onDismissDeleteIssue = onDismissDeleteIssue,
                     tripCounts = tripCounts,
@@ -208,6 +211,7 @@ private fun MotorcyclesContent(
     onHistoryClick: (Long) -> Unit,
     onTripClick: (Long) -> Unit,
     onAddMotorcycleClick: () -> Unit,
+    onEditMotorcycleClick: (Long) -> Unit,
     onDeleteMotorcycleClick: (Long) -> Unit,
     onDismissDeleteIssue: () -> Unit,
     tripCounts: Map<Long, Int>?,
@@ -296,6 +300,9 @@ private fun MotorcyclesContent(
             },
             onHistoryClick = {
                 onHistoryClick(selectedMotorcycle.id)
+            },
+            onEditClick = {
+                onEditMotorcycleClick(selectedMotorcycle.id)
             }
         )
 
@@ -1335,7 +1342,8 @@ private fun MaintenanceEntryCard(
 private fun MotorcycleActions(
     motorcycle: MotorcycleResponseDTO,
     onPlanTripClick: () -> Unit,
-    onHistoryClick: () -> Unit
+    onHistoryClick: () -> Unit,
+    onEditClick: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -1389,6 +1397,31 @@ private fun MotorcycleActions(
 
             Text(
                 text = "Ver histórico completo",
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        OutlinedButton(
+            onClick = onEditClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+            shape = RoundedCornerShape(50),
+            border = BorderStroke(1.5.dp, WarmInk.copy(alpha = 0.55f)),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = WarmInk
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Edit,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = "Editar dados da moto",
                 fontWeight = FontWeight.Bold
             )
         }

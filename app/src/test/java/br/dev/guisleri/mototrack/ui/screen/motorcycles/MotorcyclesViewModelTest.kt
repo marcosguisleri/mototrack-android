@@ -327,6 +327,12 @@ class MotorcyclesViewModelTest {
         var completedTrips = 0L
         var listCalls = 0
 
+        override suspend fun updateMotorcycle(
+            motorcycleId: Long,
+            request: br.dev.guisleri.mototrack.data.model.motorcycle.UpdateMotorcycleRequestDTO
+        ): br.dev.guisleri.mototrack.data.model.motorcycle.MotorcycleResponseDTO =
+            throw AssertionError("Unexpected motorcycle update")
+
         override suspend fun getMotorcycles(): List<MotorcycleResponseDTO> {
             listCalls++
             listFailure?.let { throw it }

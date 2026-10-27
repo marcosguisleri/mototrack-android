@@ -18,5 +18,12 @@ data class MotorcycleCreateUiState(
     val colorError: String? = null,
     val isSubmitting: Boolean = false,
     val submitErrorMessage: String? = null,
-    val isCreated: Boolean = false
-)
+    val isCreated: Boolean = false,
+    // Set when the form edits a registered motorcycle instead of creating one.
+    val editingMotorcycleId: Long? = null,
+    val isLoadingMotorcycle: Boolean = false,
+    val loadErrorMessage: String? = null,
+    val isUpdated: Boolean = false
+) {
+    val isEditing: Boolean get() = editingMotorcycleId != null
+}
