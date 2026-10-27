@@ -261,7 +261,7 @@ private fun MotorcyclePreviewCard(
                 .padding(24.dp)
         ) {
             Text(
-                text = "NOVA MOTO",
+                text = if (uiState.isEditing) "EDITAR MOTO" else "NOVA MOTO",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 2.sp,
