@@ -48,5 +48,11 @@ data class ItemInterval(
 data class MotorcycleMaintenance(
     val odometer: OdometerReading? = null,
     val services: Map<String, ServiceRecord> = emptyMap(),
-    val intervals: Map<String, ItemInterval> = emptyMap()
+    val intervals: Map<String, ItemInterval> = emptyMap(),
+    // The last km of completed trips the app saw, and the motorcycle's name: what a
+    // notification needs when the app is closed and cannot ask the server.
+    val tripKmSnapshot: Double? = null,
+    val motorcycleName: String? = null,
+    // The level (SOON or OVERDUE) each item was last notified at, by item key.
+    val alerted: Map<String, String> = emptyMap()
 )

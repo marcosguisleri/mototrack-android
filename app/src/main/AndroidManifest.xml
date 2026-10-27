@@ -33,6 +33,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".notification.MaintenanceAlertReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".notification.TripReminderBootReceiver"
             android:exported="true">
             <intent-filter>

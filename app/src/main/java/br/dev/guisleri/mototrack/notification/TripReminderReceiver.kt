@@ -67,6 +67,10 @@ class TripReminderBootReceiver : BroadcastReceiver() {
             intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
         ) {
             TripReminderScheduler(context).rearm()
+
+            if (TripReminderScheduler(context).isEnabled) {
+                MaintenanceAlertScheduler(context).ensureScheduled()
+            }
         }
     }
 }

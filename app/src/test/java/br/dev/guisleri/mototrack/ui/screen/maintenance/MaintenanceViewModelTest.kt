@@ -196,6 +196,8 @@ class MaintenanceViewModelTest {
 
         override fun observe(motorcycleId: Long): Flow<MotorcycleMaintenance> = state
 
+        override suspend fun all(): Map<Long, MotorcycleMaintenance> = mapOf(1L to state.value)
+
         override suspend fun update(
             motorcycleId: Long,
             change: (MotorcycleMaintenance) -> MotorcycleMaintenance

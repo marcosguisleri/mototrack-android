@@ -53,6 +53,8 @@ import br.dev.guisleri.mototrack.notification.TripReminderScheduler
 import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripPhotosViewModel
 import br.dev.guisleri.mototrack.ui.screen.trips.details.photos.TripPhotosViewModelFactory
 import br.dev.guisleri.mototrack.notification.canPostNotifications
+import br.dev.guisleri.mototrack.notification.MaintenanceAlertScheduler
+import br.dev.guisleri.mototrack.notification.MaintenanceNotifier
 import br.dev.guisleri.mototrack.notification.ReminderKind
 import br.dev.guisleri.mototrack.notification.costsReminder
 import br.dev.guisleri.mototrack.notification.forgottenTripReminder
@@ -232,6 +234,13 @@ fun MainScreen(
         }
     }
 
+    // The daily look at the motorcycles' maintenance follows the same switch.
+    LaunchedEffect(remindersEnabled) {
+        val scheduler = MaintenanceAlertScheduler(context)
+
+        if (remindersEnabled) scheduler.ensureScheduled() else scheduler.cancel()
+    }
+
     // How the selected motorcycle's maintenance stands, for the entry card on its tab.
     val selectedMotorcycleId =
         (motorcyclesUiState as? MotorcyclesUiState.Success)?.selectedMotorcycleId
@@ -247,6 +256,35 @@ fun MainScreen(
             ?.let { maintenanceStore.observe(it) }
             ?: emptyFlow()
     }.collectAsStateWithLifecycle(initialValue = null)
+
+    // The notifications of maintenance work from what is saved, so the km of the trips and
+    // the motorcycle's name are saved with it; and anything that just became due is told.
+    val selectedMotorcycleName =
+        (motorcyclesUiState as? MotorcyclesUiState.Success)?.let { state ->
+            state.motorcycles.firstOrNull { it.id == state.selectedMotorcycleId }
+                ?.let { "${it.brand} ${it.model}" }
+        }
+
+    LaunchedEffect(selectedMotorcycleId, selectedTripKm, selectedMotorcycleName, selectedMaintenance, remindersEnabled) {
+        val id = selectedMotorcycleId ?: return@LaunchedEffect
+        val current = selectedMaintenance ?: return@LaunchedEffect
+
+        if (
+            (selectedTripKm != null && current.tripKmSnapshot != selectedTripKm) ||
+            (selectedMotorcycleName != null && current.motorcycleName != selectedMotorcycleName)
+        ) {
+            maintenanceStore.update(id) {
+                it.copy(
+                    tripKmSnapshot = selectedTripKm ?: it.tripKmSnapshot,
+                    motorcycleName = selectedMotorcycleName ?: it.motorcycleName
+                )
+            }
+        }
+
+        if (remindersEnabled) {
+            MaintenanceNotifier(context, maintenanceStore).check()
+        }
+    }
 
     val maintenanceSummary = remember(selectedMaintenance, selectedTripKm) {
         selectedMaintenance?.let {

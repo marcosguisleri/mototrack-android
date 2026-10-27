@@ -661,8 +661,8 @@ private fun RemindersCard(
                 )
 
                 Text(
-                    text = "Avisos às 18h na véspera e às 7h30 no dia das viagens planejadas, " +
-                        "de viagem que ficou em andamento e de gastos a registrar.",
+                    text = "Avisos das viagens (véspera às 18h e dia às 7h30), de viagem que " +
+                        "ficou em andamento, de gastos a registrar e da manutenção da moto.",
                     style = MaterialTheme.typography.bodySmall,
                     color = WarmMuted
                 )

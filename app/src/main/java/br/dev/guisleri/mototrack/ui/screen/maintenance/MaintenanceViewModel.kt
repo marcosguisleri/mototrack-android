@@ -176,6 +176,7 @@ class MaintenanceViewModel(
             val customised = chosen != default
 
             current.copy(
+                alerted = current.alerted - item.key,
                 services = current.services + (item.key to record),
                 intervals =
                     if (customised) {
@@ -188,7 +189,7 @@ class MaintenanceViewModel(
     }
 
     fun clearService(item: MaintenanceItem) {
-        persist { it.copy(services = it.services - item.key) }
+        persist { it.copy(services = it.services - item.key, alerted = it.alerted - item.key) }
     }
 
     private fun persist(change: (MotorcycleMaintenance) -> MotorcycleMaintenance) {
