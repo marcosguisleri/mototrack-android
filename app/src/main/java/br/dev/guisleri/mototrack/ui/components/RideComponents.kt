@@ -525,7 +525,7 @@ internal fun PlanTripHero(
                 text = if (isFirstTrip) {
                     "Vamos viajar?"
                 } else {
-                    "Planeje sua próxima rota"
+                    "Planeje sua\nPróxima Rota"
                 },
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.ExtraBold,
