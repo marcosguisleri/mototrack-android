@@ -19,7 +19,7 @@ class HomeViewModel(
     private val userRepository: UserRepository
 ) : ViewModel() {
 
-    // The name does not change while signed in, so it is fetched only once.
+    // The name is fetched only once, and replaced when the rider edits it.
     private var userName: String? = null
 
     private val _uiState =
@@ -34,6 +34,15 @@ class HomeViewModel(
 
     init {
         loadHome()
+    }
+
+    /** The rider changed their name: the greeting follows without reloading the Home. */
+    fun onUserNameChanged(name: String) {
+        userName = name
+
+        (_uiState.value as? HomeUiState.Success)?.let {
+            _uiState.value = it.copy(userName = name)
+        }
     }
 
     fun loadHome() {

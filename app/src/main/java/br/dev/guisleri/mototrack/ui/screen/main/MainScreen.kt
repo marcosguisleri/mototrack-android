@@ -236,6 +236,14 @@ fun MainScreen(
         }
     }
 
+    // The name edited on the profile shows in the greeting of the Home at once.
+    LaunchedEffect(profileViewModel) {
+        profileViewModel.nameUpdated.collect { name ->
+            homeViewModel.onUserNameChanged(name)
+            showFeedback(Feedback("Nome atualizado"))
+        }
+    }
+
     // A level gained is celebrated once, when the trips show it.
     val levelMemory = remember { RiderLevelMemory(context) }
 
@@ -835,6 +843,9 @@ fun MainScreen(
                                 trips = homeTrips,
                                 motorcycleCount = garageSize,
                                 onRetryUserClick = profileViewModel::loadUser,
+                                onEditNameClick = profileViewModel::openNameEditor,
+                                onDismissNameEditor = profileViewModel::dismissNameEditor,
+                                onSaveName = profileViewModel::saveName,
                                 remindersEnabled = remindersEnabled,
                                 onRemindersChange = { enabled ->
                                     reminderScheduler.isEnabled = enabled

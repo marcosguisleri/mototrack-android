@@ -108,6 +108,19 @@ class HomeViewModelTest {
         }
     }
 
+    @Test
+    fun greetingFollowsTheNameWhenTheRiderEditsIt() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeHomeApi(), FakeUserApi())
+
+        viewModel.onUserNameChanged("Marcos Silva")
+
+        assertEquals("Marcos Silva", (viewModel.uiState.value as HomeUiState.Success).userName)
+
+        // And it stays after the Home reloads.
+        viewModel.loadHome()
+        assertEquals("Marcos Silva", (viewModel.uiState.value as HomeUiState.Success).userName)
+    }
+
     private class FakeUserApi : UserApiService {
         var calls = 0
         var failure: Exception? = null
@@ -117,6 +130,10 @@ class HomeViewModelTest {
             failure?.let { throw it }
             return UserResponseDTO(1, "Marcos Guisleri", "marcos@example.com")
         }
+
+        override suspend fun updateName(
+            request: br.dev.guisleri.mototrack.data.model.auth.UpdateUserNameRequestDTO
+        ): UserResponseDTO = throw AssertionError("Unexpected name update")
     }
 
     private companion object {

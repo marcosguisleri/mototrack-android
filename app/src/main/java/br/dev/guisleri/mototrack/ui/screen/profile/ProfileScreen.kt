@@ -50,6 +50,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import br.dev.guisleri.mototrack.ui.components.WarmTextField
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -87,12 +94,18 @@ import br.dev.guisleri.mototrack.ui.theme.WarmSkeleton
 
 private const val BADGES_PER_ROW = 3
 
+// The server accepts up to 100 characters when the name is edited.
+private const val MAX_NAME_LENGTH = 100
+
 @Composable
 fun ProfileScreen(
     uiState: ProfileUiState,
     trips: List<TripResponseDTO>?,
     motorcycleCount: Int?,
     onRetryUserClick: () -> Unit,
+    onEditNameClick: () -> Unit,
+    onDismissNameEditor: () -> Unit,
+    onSaveName: (String) -> Unit,
     remindersEnabled: Boolean,
     onRemindersChange: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
@@ -124,6 +137,16 @@ fun ProfileScreen(
         )
     }
 
+    if (uiState.isEditingName) {
+        EditNameDialog(
+            currentName = uiState.user?.name.orEmpty(),
+            isSaving = uiState.isSavingName,
+            errorMessage = uiState.nameErrorMessage,
+            onSave = onSaveName,
+            onDismiss = onDismissNameEditor
+        )
+    }
+
     openedAchievement
         ?.let { kind -> stats?.achievements?.firstOrNull { it.kind == kind } }
         ?.let { achievement ->
@@ -152,7 +175,8 @@ fun ProfileScreen(
             uiState = uiState,
             unlockedCount = stats?.unlockedCount,
             achievementCount = stats?.achievements?.size,
-            onRetryClick = onRetryUserClick
+            onRetryClick = onRetryUserClick,
+            onEditNameClick = onEditNameClick
         )
 
         stats?.let { LevelCard(riderLevelOf(it)) }
@@ -283,11 +307,49 @@ private fun formatXp(xp: Int): String =
     java.text.NumberFormat.getIntegerInstance(java.util.Locale.forLanguageTag("pt-BR")).format(xp)
 
 @Composable
+private fun EditNameDialog(
+    currentName: String,
+    isSaving: Boolean,
+    errorMessage: String?,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf(currentName) }
+
+    WarmDialog(
+        icon = Icons.Outlined.Edit,
+        title = "Editar nome",
+        message = "É assim que o app te chama na Home e no seu perfil.",
+        confirmText = if (isSaving) "Salvando..." else "Salvar",
+        onConfirm = { onSave(name) },
+        onDismissRequest = onDismiss,
+        dismissText = "Cancelar",
+        isLoading = isSaving
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        WarmTextField(
+            value = name,
+            onValueChange = { name = it.take(MAX_NAME_LENGTH) },
+            label = "Nome",
+            leadingIcon = Icons.Outlined.Person,
+            error = errorMessage,
+            enabled = !isSaving,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Words,
+                imeAction = ImeAction.Done
+            )
+        )
+    }
+}
+
+@Composable
 private fun IdentityCard(
     uiState: ProfileUiState,
     unlockedCount: Int?,
     achievementCount: Int?,
-    onRetryClick: () -> Unit
+    onRetryClick: () -> Unit,
+    onEditNameClick: () -> Unit
 ) {
     val user = uiState.user
 
@@ -391,6 +453,16 @@ private fun IdentityCard(
                             color = Color.White
                         )
                     }
+                }
+            }
+
+            if (user != null) {
+                IconButton(onClick = onEditNameClick) {
+                    Icon(
+                        imageVector = Icons.Outlined.Edit,
+                        contentDescription = "Editar nome",
+                        tint = Color.White.copy(alpha = 0.8f)
+                    )
                 }
             }
         }
