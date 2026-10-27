@@ -42,7 +42,11 @@ import br.dev.guisleri.mototrack.data.photo.FileTripPhotoStorage
 import java.io.File
 import br.dev.guisleri.mototrack.data.network.HomeApiService
 import br.dev.guisleri.mototrack.data.network.RetrofitClient
+import br.dev.guisleri.mototrack.data.repository.AccountRepository
 import br.dev.guisleri.mototrack.data.repository.AuthRepository
+import br.dev.guisleri.mototrack.ui.screen.auth.forgot.ForgotPasswordScreen
+import br.dev.guisleri.mototrack.ui.screen.auth.forgot.ForgotPasswordViewModel
+import br.dev.guisleri.mototrack.ui.screen.auth.forgot.ForgotPasswordViewModelFactory
 import br.dev.guisleri.mototrack.data.repository.HomeRepository
 import br.dev.guisleri.mototrack.ui.navigation.AppDestination
 import br.dev.guisleri.mototrack.ui.screen.auth.login.LoginScreen
@@ -209,6 +213,14 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
         authenticatedRetrofit.create(UserApiService::class.java)
     }
 
+    val accountRepository = remember(userApiService, tokenStorage) {
+        AccountRepository(
+            recoveryApi = RetrofitClient.accountRecoveryApiService,
+            userApi = userApiService,
+            saveTokens = tokenStorage::saveTokens
+        )
+    }
+
     val userRepository = remember(userApiService) {
         UserRepository(
             userApiService = userApiService
@@ -351,6 +363,45 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                                 backStack.add(
                                     AppDestination.REGISTER
                                 )
+                            },
+
+                            onForgotPasswordClick = {
+                                backStack.add(
+                                    AppDestination.FORGOT_PASSWORD
+                                )
+                            }
+                        )
+                    }
+
+                AppDestination.FORGOT_PASSWORD ->
+                    NavEntry(destination) {
+
+                        val forgotPasswordViewModel: ForgotPasswordViewModel = viewModel(
+                            factory = ForgotPasswordViewModelFactory(accountRepository)
+                        )
+
+                        val forgotPasswordUiState by
+                        forgotPasswordViewModel
+                            .uiState
+                            .collectAsStateWithLifecycle()
+
+                        LaunchedEffect(forgotPasswordUiState.isReset) {
+                            if (forgotPasswordUiState.isReset) {
+                                registrationSuccessMessage =
+                                    "Senha redefinida! Entre com a nova senha."
+
+                                backStack.removeLastOrNull()
+                            }
+                        }
+
+                        ForgotPasswordScreen(
+                            uiState = forgotPasswordUiState,
+                            onSendCodeClick = forgotPasswordViewModel::sendCode,
+                            onResendCodeClick = forgotPasswordViewModel::resendCode,
+                            onChangeEmailClick = forgotPasswordViewModel::changeEmail,
+                            onResetClick = forgotPasswordViewModel::resetPassword,
+                            onBackToLoginClick = {
+                                backStack.removeLastOrNull()
                             }
                         )
                     }
@@ -441,6 +492,7 @@ fun MotoTrackApp(providedTokenStorage: TokenStorage? = null) {
                             maintenanceStore = maintenanceStore,
                             placeServices = placeServices,
                             offline = offlineServices,
+                            accountRepository = accountRepository,
                             motorcycleRepository = motorcycleRepository,
                             motorcyclePreferences = motorcyclePreferences,
                             isLoggingOut = isLoggingOut,

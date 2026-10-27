@@ -57,6 +57,15 @@ class ProfileViewModelTest {
             patches += request
             return onPatch(request)
         }
+
+        override suspend fun requestEmailChange(
+            request: br.dev.guisleri.mototrack.data.model.auth.ChangeEmailRequestDTO
+        ) = throw AssertionError("Unexpected e-mail change")
+
+        override suspend fun confirmEmailChange(
+            request: br.dev.guisleri.mototrack.data.model.auth.ConfirmEmailChangeRequestDTO
+        ): br.dev.guisleri.mototrack.data.model.auth.AuthTokenResponseDTO =
+            throw AssertionError("Unexpected e-mail change")
     }
 
     @Test

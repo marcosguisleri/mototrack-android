@@ -134,6 +134,15 @@ class HomeViewModelTest {
         override suspend fun updateName(
             request: br.dev.guisleri.mototrack.data.model.auth.UpdateUserNameRequestDTO
         ): UserResponseDTO = throw AssertionError("Unexpected name update")
+
+        override suspend fun requestEmailChange(
+            request: br.dev.guisleri.mototrack.data.model.auth.ChangeEmailRequestDTO
+        ) = throw AssertionError("Unexpected e-mail change")
+
+        override suspend fun confirmEmailChange(
+            request: br.dev.guisleri.mototrack.data.model.auth.ConfirmEmailChangeRequestDTO
+        ): br.dev.guisleri.mototrack.data.model.auth.AuthTokenResponseDTO =
+            throw AssertionError("Unexpected e-mail change")
     }
 
     private companion object {

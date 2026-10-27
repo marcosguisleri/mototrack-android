@@ -95,6 +95,11 @@ import br.dev.guisleri.mototrack.ui.screen.trips.details.costs.TripCostsViewMode
 import br.dev.guisleri.mototrack.data.repository.TripCostRepository
 import br.dev.guisleri.mototrack.data.maintenance.MaintenanceStore
 import br.dev.guisleri.mototrack.data.offline.OfflineServices
+import br.dev.guisleri.mototrack.data.repository.AccountRepository
+import br.dev.guisleri.mototrack.ui.navigation.ChangeEmailDestination
+import br.dev.guisleri.mototrack.ui.screen.profile.email.ChangeEmailScreen
+import br.dev.guisleri.mototrack.ui.screen.profile.email.ChangeEmailViewModel
+import br.dev.guisleri.mototrack.ui.screen.profile.email.ChangeEmailViewModelFactory
 import br.dev.guisleri.mototrack.data.place.PlaceServices
 import br.dev.guisleri.mototrack.data.maintenance.maintenanceOverview
 import br.dev.guisleri.mototrack.data.maintenance.summarize
@@ -123,6 +128,7 @@ fun MainScreen(
     maintenanceStore: MaintenanceStore,
     placeServices: PlaceServices,
     offline: OfflineServices,
+    accountRepository: AccountRepository,
     motorcycleRepository: MotorcycleRepository,
     motorcyclePreferences: MotorcyclePreferences,
     isLoggingOut: Boolean = false,
@@ -836,6 +842,45 @@ fun MainScreen(
                             )
                         }
 
+                    ChangeEmailDestination ->
+                        NavEntry(destination) {
+
+                            val changeEmailViewModel: ChangeEmailViewModel = viewModel(
+                                factory = ChangeEmailViewModelFactory(
+                                    accountRepository = accountRepository,
+                                    currentEmail = profileUiState.user?.email
+                                )
+                            )
+
+                            val changeEmailUiState by changeEmailViewModel
+                                .uiState
+                                .collectAsStateWithLifecycle()
+
+                            LaunchedEffect(changeEmailUiState.isChanged) {
+                                if (changeEmailUiState.isChanged) {
+                                    showFeedback(
+                                        Feedback("E-mail alterado para ${changeEmailUiState.newEmail}")
+                                    )
+                                    profileViewModel.loadUser()
+                                    backStack.removeLastOrNull()
+                                }
+                            }
+
+                            ChangeEmailScreen(
+                                uiState = changeEmailUiState,
+                                currentEmail = profileUiState.user?.email,
+                                onBackClick = { backStack.removeLastOrNull() },
+                                onRequestClick = changeEmailViewModel::requestCode,
+                                onConfirmClick = changeEmailViewModel::confirm,
+                                onResendClick = changeEmailViewModel::resendCode,
+                                onEditRequestClick = changeEmailViewModel::editRequest,
+                                modifier = Modifier
+                                    .background(WarmCanvas)
+                                    .padding(innerPadding)
+                                    .consumeWindowInsets(innerPadding)
+                            )
+                        }
+
                     MainDestination.PROFILE ->
                         NavEntry(destination) {
                             ProfileScreen(
@@ -846,6 +891,9 @@ fun MainScreen(
                                 onEditNameClick = profileViewModel::openNameEditor,
                                 onDismissNameEditor = profileViewModel::dismissNameEditor,
                                 onSaveName = profileViewModel::saveName,
+                                onChangeEmailClick = {
+                                    backStack.add(ChangeEmailDestination)
+                                },
                                 remindersEnabled = remindersEnabled,
                                 onRemindersChange = { enabled ->
                                     reminderScheduler.isEnabled = enabled

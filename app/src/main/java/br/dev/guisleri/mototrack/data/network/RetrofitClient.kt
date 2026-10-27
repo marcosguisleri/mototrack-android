@@ -23,6 +23,10 @@ object RetrofitClient {
         publicRetrofit.create(AuthApiService::class.java)
     }
 
+    val accountRecoveryApiService: AccountRecoveryApiService by lazy {
+        publicRetrofit.create(AccountRecoveryApiService::class.java)
+    }
+
     fun createAuthenticatedRetrofit(
         tokenStorage: TokenStorage
     ): Retrofit {

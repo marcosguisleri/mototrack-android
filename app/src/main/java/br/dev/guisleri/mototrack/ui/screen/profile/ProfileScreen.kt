@@ -57,6 +57,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import br.dev.guisleri.mototrack.ui.components.WarmTextField
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -106,6 +110,7 @@ fun ProfileScreen(
     onEditNameClick: () -> Unit,
     onDismissNameEditor: () -> Unit,
     onSaveName: (String) -> Unit,
+    onChangeEmailClick: () -> Unit,
     remindersEnabled: Boolean,
     onRemindersChange: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
@@ -196,6 +201,10 @@ fun ProfileScreen(
         SectionTitle(title = "Destinos favoritos")
 
         FavoriteDestinationsCard(stats)
+
+        SectionTitle(title = "Conta")
+
+        AccountCard(onChangeEmailClick = onChangeEmailClick)
 
         SectionTitle(title = "Preferências")
 
@@ -305,6 +314,64 @@ private fun LevelCard(level: RiderLevel) {
 
 private fun formatXp(xp: Int): String =
     java.text.NumberFormat.getIntegerInstance(java.util.Locale.forLanguageTag("pt-BR")).format(xp)
+
+/** What the rider can do about the credentials of the account. */
+@Composable
+private fun AccountCard(
+    onChangeEmailClick: () -> Unit
+) {
+    WarmSurface(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    onClickLabel = "Alterar e-mail",
+                    role = Role.Button,
+                    onClick = onChangeEmailClick
+                )
+                .padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(WarmEmberTint),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Email,
+                    contentDescription = null,
+                    tint = WarmEmber,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Alterar e-mail",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = WarmInk
+                )
+
+                Text(
+                    text = "Confirmamos o novo endereço com um código.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WarmMuted
+                )
+            }
+
+            Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint = WarmMuted
+            )
+        }
+    }
+}
 
 @Composable
 private fun EditNameDialog(

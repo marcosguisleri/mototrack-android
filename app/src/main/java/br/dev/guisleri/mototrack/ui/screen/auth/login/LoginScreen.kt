@@ -66,7 +66,8 @@ fun LoginScreen(
         email: String,
         password: String
     ) -> Unit,
-    onCreateAccountClick: () -> Unit
+    onCreateAccountClick: () -> Unit,
+    onForgotPasswordClick: () -> Unit = {}
 ) {
     var email by rememberSaveable {
         mutableStateOf("")
@@ -246,6 +247,28 @@ fun LoginScreen(
                 }
             }
         )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Box(
+                modifier = Modifier
+                    .clickable(
+                        enabled = !isLoading,
+                        role = Role.Button,
+                        onClick = onForgotPasswordClick
+                    )
+                    .padding(vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Esqueci minha senha",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = WarmEmber
+                )
+            }
+        }
 
         val errorMessage =
             permissionError
